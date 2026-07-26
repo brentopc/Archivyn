@@ -4,26 +4,14 @@
 @using Archivyn.Data
 @using Archivyn.Models
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.JSInterop
 
 @inject ArchivynDbContext Db
+@inject IJSRuntime JS
 
 <PageTitle>Keyword Types</PageTitle>
 
 <h1>Keyword Types</h1>
-
-<div class="alert alert-info">
-    <div>Renderer: @RendererInfo.Name</div>
-    <div>Interactive: @RendererInfo.IsInteractive</div>
-    <div>Assigned mode: @AssignedRenderMode?.GetType().Name</div>
-</div>
-
-<p>Test clicks: @TestClicks</p>
-
-<button type="button"
-        class="btn btn-secondary mb-3"
-        @onclick="TestBlazor">
-    Test Blazor
-</button>
 
 <div class="card p-3 mb-4">
     <div class="mb-3">
@@ -71,6 +59,7 @@
             <th>ID</th>
             <th>Keyword</th>
             <th>Length</th>
+            <th class="text-end">Actions</th>
         </tr>
     </thead>
 
@@ -78,7 +67,7 @@
         @if (KeywordList.Count == 0)
         {
             <tr>
-                <td colspan="3">No keyword types have been created.</td>
+                <td colspan="4">No keyword types have been created.</td>
             </tr>
         }
         else
@@ -89,6 +78,13 @@
                     <td>@keyword.KeyTypeNum</td>
                     <td>@keyword.KeyTypeName</td>
                     <td>@keyword.KeyTypeLen</td>
+                    <td class="text-end">
+                        <button type="button"
+                                class="btn btn-sm btn-outline-danger"
+                                @onclick="() => DeleteKeywordAsync(keyword)">
+                            Delete
+                        </button>
+                    </td>
                 </tr>
             }
         }
@@ -134,6 +130,19 @@
             return;
         }
 
+        var normalizedName = name.ToLower();
+
+        var duplicateExists = await Db.KeyTypes
+            .AsNoTracking()
+            .AnyAsync(keyword =>
+                keyword.KeyTypeName.ToLower() == normalizedName);
+
+        if (duplicateExists)
+        {
+            ShowError($"A keyword type named “{name}” already exists.");
+            return;
+        }
+
         IsSaving = true;
 
         try
@@ -165,6 +174,51 @@
         finally
         {
             IsSaving = false;
+        }
+    }
+
+    private async Task DeleteKeywordAsync(KeyType keyword)
+    {
+        StatusMessage = null;
+
+        var confirmed = await JS.InvokeAsync<bool>(
+            "confirm",
+            $"Delete keyword type “{keyword.KeyTypeName}”?");
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        try
+        {
+            var existingKeyword = await Db.KeyTypes
+                .FindAsync(keyword.KeyTypeNum);
+
+            if (existingKeyword is null)
+            {
+                ShowError(
+                    "The keyword type no longer exists.");
+
+                await LoadKeywordsAsync();
+                return;
+            }
+
+            Db.KeyTypes.Remove(existingKeyword);
+            await Db.SaveChangesAsync();
+
+            await LoadKeywordsAsync();
+
+            StatusCssClass = "alert-success";
+            StatusMessage =
+                $"Keyword type “{keyword.KeyTypeName}” was deleted.";
+        }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                $"The keyword could not be deleted: {ex.Message}");
         }
     }
 

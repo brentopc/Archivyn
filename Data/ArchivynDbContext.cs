@@ -27,6 +27,9 @@ public class ArchivynDbContext : DbContext
                 .HasColumnName("keytypename")
                 .HasMaxLength(51);
 
+            entity.HasIndex(e => e.KeyTypeName)
+                .IsUnique();
+
             entity.Property(e => e.KeyTypeMask)
                 .HasColumnName("keytypemask")
                 .HasMaxLength(51);
