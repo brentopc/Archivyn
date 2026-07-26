@@ -1,0 +1,82 @@
+﻿@page "/admin/keywords"
+
+@using Archivyn.Data
+@using Archivyn.Models
+@using Microsoft.EntityFrameworkCore
+
+@inject ArchivynDbContext Db
+
+<h3>Keyword Types</h3>
+
+<div class="card p-3 mb-3">
+
+    <div class="mb-3">
+        <label class="form-label">Keyword Name</label>
+        <input class="form-control" @bind="NewKeyword.Name" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Length</label>
+        <input class="form-control" type="number" @bind="NewKeyword.KeyTypeLen" />
+    </div>
+
+    <button class="btn btn-primary" @onclick="SaveKeyword">
+        Save
+    </button>
+
+</div>
+
+<hr />
+
+<table class="table table-striped">
+
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Keyword</th>
+            <th>Length</th>
+        </tr>
+    </thead>
+
+    <tbody>
+
+        @foreach (var keyword in KeywordList)
+        {
+            <tr>
+                <td>@keyword.KeyTypeNum</td>
+                <td>@keyword.Name</td>
+                <td>@keyword.KeyTypeLen</td>
+            </tr>
+        }
+
+    </tbody>
+
+</table>
+
+@code {
+
+    private List<KeyType> KeywordList = new();
+
+    private KeyType NewKeyword = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        KeywordList = await Db.KeyTypes
+            .OrderBy(k => k.Name)
+            .ToListAsync();
+    }
+
+    private async Task SaveKeyword()
+    {
+        Db.KeyTypes.Add(NewKeyword);
+
+        await Db.SaveChangesAsync();
+
+        NewKeyword = new();
+
+        KeywordList = await Db.KeyTypes
+            .OrderBy(k => k.Name)
+            .ToListAsync();
+    }
+
+}

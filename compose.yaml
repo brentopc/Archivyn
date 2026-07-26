@@ -1,0 +1,39 @@
+services:
+  archivyn:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: archivyn
+    restart: unless-stopped
+    ports:
+      - "7421:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Archivyn: >-
+        Host=postgres;
+        Port=5432;
+        Database=archivyn;
+        Username=archivyn;
+        Password=${POSTGRES_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17
+    container_name: archivyn-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: archivyn
+      POSTGRES_USER: archivyn
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - archivyn_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U archivyn -d archivyn"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  archivyn_postgres_data:
