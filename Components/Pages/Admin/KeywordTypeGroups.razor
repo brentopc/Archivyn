@@ -11,6 +11,18 @@
 
 <h1>Keyword Type Groups</h1>
 
+<div class="alert alert-info">
+    <div>Renderer: @RendererInfo.Name</div>
+    <div>Interactive: @RendererInfo.IsInteractive</div>
+    <div>Test clicks: @TestClicks</div>
+</div>
+
+<button type="button"
+        class="btn btn-secondary mb-3"
+        @onclick="TestClick">
+    Test Blazor
+</button>
+
 <p class="text-muted">
     Create standard Keyword Type Groups and assign Keyword Types to them.
 </p>
@@ -38,15 +50,14 @@
                 <input id="new-group-name"
                        class="form-control"
                        maxlength="80"
-                       placeholder="Example: Vendor Information"
-                       @bind="NewGroupName" />
+                       @bind="NewGroup.KeySetName" />
             </div>
 
             <button type="button"
                     class="btn btn-primary"
                     disabled="@IsBusy"
                     @onclick="CreateGroupAsync">
-                Create Group
+                @(IsBusy ? "Creating..." : "Create Group")
             </button>
         </div>
 
@@ -70,10 +81,8 @@
                                 ? "active"
                                 : "")"
                                 disabled="@IsBusy"
-                                @onclick="() => SelectGroupAsync(
-                                                                group.KeySetTableNum)">
-@group.KeySetName
-</button>
+                                @onclick="() => SelectGroupAsync(group.KeySetTableNum)">@group.KeySetName
+                        </button>
                     }
                 </div>
             }
@@ -145,10 +154,8 @@
                                                             class="btn btn-sm btn-outline-primary"
                                                             disabled="@IsBusy"
                                                             @onclick="() =>
-                                                                                                                        AddKeywordAsync(
-                                                                                                                            keyword.KeyTypeNum)">
-Add
-</button>
+                                                            AddKeywordAsync(keyword.KeyTypeNum)">Add
+                                                    </button>
                                                 </td>
                                             </tr>
                                         }
@@ -204,11 +211,8 @@ Add
                                                     <button type="button"
                                                             class="btn btn-sm btn-outline-danger"
                                                             disabled="@IsBusy"
-                                                            @onclick="() =>
-                                                                                                                        RemoveKeywordAsync(
-                                                                                                                            membership.KeyTypeNum)">
-Remove
-</button>
+                                                            @onclick="() =>RemoveKeywordAsync(membership.KeyTypeNum)">Remove
+                                                    </button>
                                                 </td>
                                             </tr>
                                         }
@@ -228,21 +232,16 @@ Remove
 
 @code {
     private List<KeywordSet> GroupList = [];
-
     private List<KeyType> AvailableKeywords = [];
-
     private List<KeywordSetKeyType> AssignedMemberships = [];
 
     private KeywordSet? SelectedGroup;
-
     private long? SelectedGroupNum;
 
-    private string NewGroupName = string.Empty;
+    private KeywordSet NewGroup = new();
 
     private bool IsBusy;
-
     private string? StatusMessage;
-
     private string StatusCssClass = "alert-success";
 
     protected override async Task OnInitializedAsync()
@@ -331,6 +330,8 @@ Remove
 
     private async Task CreateGroupAsync()
     {
+        Console.WriteLine($"CreateGroupAsync fired. Group name: '{NewGroup.KeySetName}'");
+
         ClearStatus();
 
         if (IsBusy)
@@ -338,7 +339,7 @@ Remove
             return;
         }
 
-        var name = NewGroupName.Trim();
+        var name = NewGroup.KeySetName.Trim();
 
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -393,7 +394,7 @@ Remove
             var newGroupNumber =
                 group.KeySetTableNum;
 
-            NewGroupName = string.Empty;
+            NewGroup = new KeywordSet();
 
             Db.ChangeTracker.Clear();
 
@@ -616,5 +617,15 @@ Remove
     {
         StatusCssClass = "alert-danger";
         StatusMessage = message;
+    }
+
+    private int TestClicks;
+
+    private void TestClick()
+    {
+        TestClicks++;
+
+        Console.WriteLine(
+            $"Keyword Type Groups test clicked: {TestClicks}");
     }
 }

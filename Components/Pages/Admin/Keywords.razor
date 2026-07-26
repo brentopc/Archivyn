@@ -39,9 +39,9 @@
     <div>
         <button type="button"
                 class="btn btn-primary"
-                disabled="@IsSaving"
-                @onclick="SaveKeywordAsync">
-            @(IsSaving ? "Saving..." : "Save")
+                disabled="@IsBusy"
+                @onclick="CreateKeywordAsync">
+            @(IsBusy ? "Creating..." : "Create Keyword")
         </button>
     </div>
 
@@ -95,7 +95,7 @@
     private List<KeyType> KeywordList = [];
     private KeyType NewKeyword = new();
 
-    private bool IsSaving;
+    private bool IsBusy;
     private string? StatusMessage;
     private string StatusCssClass = "alert-success";
 
@@ -112,8 +112,11 @@
             .ToListAsync();
     }
 
-    private async Task SaveKeywordAsync()
+    private async Task CreateKeywordAsync()
     {
+        Console.WriteLine($"CreateKeywordAsync fired. Keyword name: '{NewKeyword.KeyTypeName}'");
+
+
         StatusMessage = null;
 
         var name = NewKeyword.KeyTypeName?.Trim();
@@ -143,7 +146,7 @@
             return;
         }
 
-        IsSaving = true;
+        IsBusy = true;
 
         try
         {
@@ -173,7 +176,7 @@
         }
         finally
         {
-            IsSaving = false;
+            IsBusy = false;
         }
     }
 
