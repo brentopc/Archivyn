@@ -17,6 +17,8 @@ services:
         Database=${POSTGRES_DB:-archivyn};
         Username=${POSTGRES_USER:-archivyn};
         Password=${POSTGRES_PASSWORD:?Run ./install.sh first}
+    volumes:    
+      - archivyn_data_protection:/root/.aspnet/DataProtection-Keys
 
     depends_on:
       postgres:
@@ -47,3 +49,4 @@ services:
 
 volumes:
   archivyn_postgres_data:
+  archivyn_data_protection:
