@@ -1,0 +1,620 @@
+﻿@page "/admin/keyword-type-groups"
+@rendermode InteractiveServer
+
+@using Archivyn.Data
+@using Archivyn.Models
+@using Microsoft.EntityFrameworkCore
+
+@inject ArchivynDbContext Db
+
+<PageTitle>Keyword Type Groups</PageTitle>
+
+<h1>Keyword Type Groups</h1>
+
+<p class="text-muted">
+    Create standard Keyword Type Groups and assign Keyword Types to them.
+</p>
+
+@if (!string.IsNullOrWhiteSpace(StatusMessage))
+{
+    <div class="alert @StatusCssClass">
+        @StatusMessage
+    </div>
+}
+
+<div class="row g-4">
+
+    <div class="col-lg-4">
+
+        <div class="card p-3 mb-4">
+            <h5>Create Keyword Type Group</h5>
+
+            <div class="mb-3">
+                <label class="form-label"
+                       for="new-group-name">
+                    Group Name
+                </label>
+
+                <input id="new-group-name"
+                       class="form-control"
+                       maxlength="80"
+                       placeholder="Example: Vendor Information"
+                       @bind="NewGroupName" />
+            </div>
+
+            <button type="button"
+                    class="btn btn-primary"
+                    disabled="@IsBusy"
+                    @onclick="CreateGroupAsync">
+                Create Group
+            </button>
+        </div>
+
+        <div class="card p-3">
+            <h5>Keyword Type Groups</h5>
+
+            @if (GroupList.Count == 0)
+            {
+                <p class="text-muted mb-0">
+                    No Keyword Type Groups have been created.
+                </p>
+            }
+            else
+            {
+                <div class="list-group">
+                    @foreach (var group in GroupList)
+                    {
+                        <button type="button"
+                                class="list-group-item list-group-item-action
+                            @(SelectedGroupNum == group.KeySetTableNum
+                                ? "active"
+                                : "")"
+                                disabled="@IsBusy"
+                                @onclick="() => SelectGroupAsync(
+                                                                group.KeySetTableNum)">
+@group.KeySetName
+</button>
+                    }
+                </div>
+            }
+        </div>
+
+    </div>
+
+    <div class="col-lg-8">
+
+        @if (SelectedGroup is null)
+        {
+            <div class="alert alert-secondary">
+                Select a Keyword Type Group to manage its keywords.
+            </div>
+        }
+        else
+        {
+            <div class="mb-3">
+                <h3 class="mb-1">
+                    @SelectedGroup.KeySetName
+                </h3>
+
+                <small class="text-muted">
+                    Internal group number:
+                    @SelectedGroup.KeySetTableNum
+                </small>
+            </div>
+
+            <div class="row g-3">
+
+                <div class="col-md-6">
+                    <div class="card p-3 h-100">
+                        <h5>Available Keywords</h5>
+
+                        <p class="small text-muted">
+                            Keyword Types not currently assigned to this group.
+                        </p>
+
+                        @if (AvailableKeywords.Count == 0)
+                        {
+                            <p class="text-muted mb-0">
+                                No additional Keyword Types are available.
+                            </p>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Keyword Type</th>
+                                            <th class="text-end">
+                                                Action
+                                            </th>
+                                        </tr>
+                                    </thead>
+
+                                    <tbody>
+                                        @foreach (var keyword
+                                            in AvailableKeywords)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    @keyword.KeyTypeName
+                                                </td>
+
+                                                <td class="text-end">
+                                                    <button type="button"
+                                                            class="btn btn-sm btn-outline-primary"
+                                                            disabled="@IsBusy"
+                                                            @onclick="() =>
+                                                                                                                        AddKeywordAsync(
+                                                                                                                            keyword.KeyTypeNum)">
+Add
+</button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card p-3 h-100">
+                        <h5>Selected Keywords</h5>
+
+                        <p class="small text-muted">
+                            Keyword Types assigned to this group.
+                        </p>
+
+                        @if (AssignedMemberships.Count == 0)
+                        {
+                            <p class="text-muted mb-0">
+                                No Keyword Types are assigned.
+                            </p>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Order</th>
+                                            <th>Keyword Type</th>
+                                            <th class="text-end">
+                                                Action
+                                            </th>
+                                        </tr>
+                                    </thead>
+
+                                    <tbody>
+                                        @foreach (var membership
+                                            in AssignedMemberships)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    @membership.DisplayOrder
+                                                </td>
+
+                                                <td>
+                                                    @membership.KeyType.KeyTypeName
+                                                </td>
+
+                                                <td class="text-end">
+                                                    <button type="button"
+                                                            class="btn btn-sm btn-outline-danger"
+                                                            disabled="@IsBusy"
+                                                            @onclick="() =>
+                                                                                                                        RemoveKeywordAsync(
+                                                                                                                            membership.KeyTypeNum)">
+Remove
+</button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+            </div>
+        }
+
+    </div>
+
+</div>
+
+@code {
+    private List<KeywordSet> GroupList = [];
+
+    private List<KeyType> AvailableKeywords = [];
+
+    private List<KeywordSetKeyType> AssignedMemberships = [];
+
+    private KeywordSet? SelectedGroup;
+
+    private long? SelectedGroupNum;
+
+    private string NewGroupName = string.Empty;
+
+    private bool IsBusy;
+
+    private string? StatusMessage;
+
+    private string StatusCssClass = "alert-success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGroupsAsync();
+
+        if (GroupList.Count > 0)
+        {
+            await SelectGroupAsync(
+                GroupList[0].KeySetTableNum);
+        }
+    }
+
+    private async Task LoadGroupsAsync()
+    {
+        GroupList = await Db.KeywordSets
+            .AsNoTracking()
+
+            // Hyland value 1 means standard Keyword Type Group.
+            // Value 0 would be an AutoFill Keyword Set.
+            // Value 2 would be a Multi-Instance Keyword Type Group.
+            .Where(group => group.IsKeyTypeGroup == 1)
+
+            .OrderBy(group => group.KeySetName)
+            .ToListAsync();
+    }
+
+    private async Task SelectGroupAsync(long groupNumber)
+    {
+        ClearStatus();
+
+        SelectedGroupNum = groupNumber;
+
+        SelectedGroup = await Db.KeywordSets
+            .AsNoTracking()
+            .SingleOrDefaultAsync(group =>
+                group.KeySetTableNum == groupNumber &&
+                group.IsKeyTypeGroup == 1);
+
+        if (SelectedGroup is null)
+        {
+            AvailableKeywords = [];
+            AssignedMemberships = [];
+
+            ShowError(
+                "The selected Keyword Type Group no longer exists.");
+
+            return;
+        }
+
+        await LoadMembershipAsync();
+    }
+
+    private async Task LoadMembershipAsync()
+    {
+        if (SelectedGroupNum is null)
+        {
+            AvailableKeywords = [];
+            AssignedMemberships = [];
+            return;
+        }
+
+        var groupNumber = SelectedGroupNum.Value;
+
+        AssignedMemberships = await Db.KeywordSetKeyTypes
+            .AsNoTracking()
+            .Include(membership => membership.KeyType)
+            .Where(membership =>
+                membership.KeySetTableNum == groupNumber)
+            .OrderBy(membership =>
+                membership.DisplayOrder)
+            .ThenBy(membership =>
+                membership.KeyType.KeyTypeName)
+            .ToListAsync();
+
+        AvailableKeywords = await Db.KeyTypes
+            .AsNoTracking()
+            .Where(keyword =>
+                !Db.KeywordSetKeyTypes.Any(membership =>
+                    membership.KeySetTableNum == groupNumber &&
+                    membership.KeyTypeNum == keyword.KeyTypeNum))
+            .OrderBy(keyword =>
+                keyword.KeyTypeName)
+            .ToListAsync();
+    }
+
+    private async Task CreateGroupAsync()
+    {
+        ClearStatus();
+
+        if (IsBusy)
+        {
+            return;
+        }
+
+        var name = NewGroupName.Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            ShowError(
+                "Enter a Keyword Type Group name.");
+
+            return;
+        }
+
+        if (name.Length > 80)
+        {
+            ShowError(
+                "The group name cannot exceed 80 characters.");
+
+            return;
+        }
+
+        var normalizedName = name.ToLower();
+
+        var duplicateExists = await Db.KeywordSets
+            .AsNoTracking()
+            .AnyAsync(group =>
+                group.IsKeyTypeGroup == 1 &&
+                group.KeySetName.ToLower() == normalizedName);
+
+        if (duplicateExists)
+        {
+            ShowError(
+                $"A Keyword Type Group named “{name}” already exists.");
+
+            return;
+        }
+
+        IsBusy = true;
+
+        try
+        {
+            var group = new KeywordSet
+            {
+                KeySetName = name,
+
+                // This page creates only standard Keyword Type Groups.
+                IsKeyTypeGroup = 1,
+
+                Flags = 0
+            };
+
+            Db.KeywordSets.Add(group);
+
+            await Db.SaveChangesAsync();
+
+            var newGroupNumber =
+                group.KeySetTableNum;
+
+            NewGroupName = string.Empty;
+
+            Db.ChangeTracker.Clear();
+
+            await LoadGroupsAsync();
+
+            await SelectGroupAsync(
+                newGroupNumber);
+
+            ShowSuccess(
+                $"Keyword Type Group “{name}” was created.");
+        }
+        catch (DbUpdateException)
+        {
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                $"A Keyword Type Group named “{name}” already exists.");
+        }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                $"The Keyword Type Group could not be created: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task AddKeywordAsync(
+        long keyTypeNumber)
+    {
+        ClearStatus();
+
+        if (IsBusy)
+        {
+            return;
+        }
+
+        if (SelectedGroupNum is null ||
+            SelectedGroup is null)
+        {
+            ShowError(
+                "Select a Keyword Type Group first.");
+
+            return;
+        }
+
+        IsBusy = true;
+
+        try
+        {
+            var groupNumber =
+                SelectedGroupNum.Value;
+
+            var keyword = await Db.KeyTypes
+                .AsNoTracking()
+                .SingleOrDefaultAsync(item =>
+                    item.KeyTypeNum == keyTypeNumber);
+
+            if (keyword is null)
+            {
+                ShowError(
+                    "The Keyword Type no longer exists.");
+
+                return;
+            }
+
+            var alreadyAssigned =
+                await Db.KeywordSetKeyTypes
+                    .AsNoTracking()
+                    .AnyAsync(membership =>
+                        membership.KeySetTableNum == groupNumber &&
+                        membership.KeyTypeNum == keyTypeNumber);
+
+            if (alreadyAssigned)
+            {
+                ShowError(
+                    $"“{keyword.KeyTypeName}” is already assigned to this group.");
+
+                return;
+            }
+
+            var highestDisplayOrder =
+                await Db.KeywordSetKeyTypes
+                    .Where(membership =>
+                        membership.KeySetTableNum == groupNumber)
+                    .MaxAsync(membership =>
+                        (int?)membership.DisplayOrder);
+
+            var membership =
+                new KeywordSetKeyType
+                {
+                    KeySetTableNum = groupNumber,
+                    KeyTypeNum = keyTypeNumber,
+                    DisplayOrder =
+                        (highestDisplayOrder ?? 0) + 1
+                };
+
+            Db.KeywordSetKeyTypes.Add(
+                membership);
+
+            await Db.SaveChangesAsync();
+
+            Db.ChangeTracker.Clear();
+
+            await LoadMembershipAsync();
+
+            ShowSuccess(
+                $"“{keyword.KeyTypeName}” was added to “{SelectedGroup.KeySetName}”.");
+        }
+        catch (DbUpdateException)
+        {
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                "That Keyword Type is already assigned to this group.");
+        }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                $"The Keyword Type could not be added: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task RemoveKeywordAsync(
+        long keyTypeNumber)
+    {
+        ClearStatus();
+
+        if (IsBusy)
+        {
+            return;
+        }
+
+        if (SelectedGroupNum is null ||
+            SelectedGroup is null)
+        {
+            ShowError(
+                "Select a Keyword Type Group first.");
+
+            return;
+        }
+
+        IsBusy = true;
+
+        try
+        {
+            var groupNumber =
+                SelectedGroupNum.Value;
+
+            var membership =
+                await Db.KeywordSetKeyTypes
+                    .SingleOrDefaultAsync(item =>
+                        item.KeySetTableNum == groupNumber &&
+                        item.KeyTypeNum == keyTypeNumber);
+
+            if (membership is null)
+            {
+                ShowError(
+                    "That Keyword Type is not assigned to this group.");
+
+                return;
+            }
+
+            var keywordName =
+                await Db.KeyTypes
+                    .AsNoTracking()
+                    .Where(keyword =>
+                        keyword.KeyTypeNum == keyTypeNumber)
+                    .Select(keyword =>
+                        keyword.KeyTypeName)
+                    .SingleOrDefaultAsync();
+
+            Db.KeywordSetKeyTypes.Remove(
+                membership);
+
+            await Db.SaveChangesAsync();
+
+            Db.ChangeTracker.Clear();
+
+            await LoadMembershipAsync();
+
+            ShowSuccess(
+                $"“{keywordName ?? "Keyword"}” was removed from “{SelectedGroup.KeySetName}”.");
+        }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                $"The Keyword Type could not be removed: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void ClearStatus()
+    {
+        StatusMessage = null;
+    }
+
+    private void ShowSuccess(string message)
+    {
+        StatusCssClass = "alert-success";
+        StatusMessage = message;
+    }
+
+    private void ShowError(string message)
+    {
+        StatusCssClass = "alert-danger";
+        StatusMessage = message;
+    }
+}

@@ -13,5 +13,8 @@
         public long DataType { get; set; }
 
         public long KeyTypeLen { get; set; }
+
+        public ICollection<KeywordSetKeyType> KeywordSetMemberships { get; set; }
+        = new List<KeywordSetKeyType>();
     }
 }
