@@ -11,6 +11,20 @@
 
 <h1>Keyword Types</h1>
 
+<div class="alert alert-info">
+    <div>Renderer: @RendererInfo.Name</div>
+    <div>Interactive: @RendererInfo.IsInteractive</div>
+    <div>Assigned mode: @AssignedRenderMode?.GetType().Name</div>
+</div>
+
+<p>Test clicks: @TestClicks</p>
+
+<button type="button"
+        class="btn btn-secondary mb-3"
+        @onclick="TestBlazor">
+    Test Blazor
+</button>
+
 <div class="card p-3 mb-4">
     <div class="mb-3">
         <label class="form-label" for="keyword-name">
@@ -158,5 +172,13 @@
     {
         StatusCssClass = "alert-danger";
         StatusMessage = message;
+    }
+
+    private int TestClicks;
+
+    private void TestBlazor()
+    {
+        TestClicks++;
+        Console.WriteLine($"Test Blazor clicked: {TestClicks}");
     }
 }
