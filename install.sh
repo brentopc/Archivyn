@@ -41,8 +41,8 @@ if [[ -f "$ENV_FILE" ]]; then
     echo "Existing configuration backed up to $BACKUP_FILE"
 fi
 
-read -r -p "Archivyn web port [17421]: " ARCHIVYN_PORT
-ARCHIVYN_PORT="${ARCHIVYN_PORT:-17421}"
+read -r -p "Archivyn web port [7421]: " ARCHIVYN_PORT
+ARCHIVYN_PORT="${ARCHIVYN_PORT:-7421}"
 
 read -r -p "PostgreSQL database [archivyn]: " POSTGRES_DB
 POSTGRES_DB="${POSTGRES_DB:-archivyn}"
