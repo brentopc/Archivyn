@@ -23,8 +23,8 @@ public class ArchivynDbContext : DbContext
             entity.Property(e => e.KeyTypeNum)
                 .HasColumnName("keytypenum");
 
-            entity.Property(e => e.Name)
-                .HasColumnName("name")
+            entity.Property(e => e.KeyTypeName)
+                .HasColumnName("keytypename")
                 .HasMaxLength(51);
 
             entity.Property(e => e.KeyTypeMask)

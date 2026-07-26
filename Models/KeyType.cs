@@ -4,7 +4,7 @@
     {
         public long KeyTypeNum { get; set; }
 
-        public string Name { get; set; } = "";
+        public string KeyTypeName { get; set; } = string.Empty;
 
         public string? KeyTypeMask { get; set; }
 

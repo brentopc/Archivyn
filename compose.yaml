@@ -1,4 +1,5 @@
 services:
+  services:
   archivyn:
     build:
       context: .
@@ -8,7 +9,7 @@ services:
 
     ports:
       - "${ARCHIVYN_PORT:-7421}:8080"
-
+    
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__Archivyn: >-
@@ -16,8 +17,9 @@ services:
         Port=5432;
         Database=${POSTGRES_DB:-archivyn};
         Username=${POSTGRES_USER:-archivyn};
-        Password=${POSTGRES_PASSWORD:?Run ./install.sh first}
-    volumes:    
+        Password=${POSTGRES_PASSWORD};
+    
+    volumes:
       - archivyn_data_protection:/root/.aspnet/DataProtection-Keys
 
     depends_on:

@@ -1,4 +1,5 @@
 ﻿@page "/admin/keywords"
+@rendermode InteractiveServer
 
 @using Archivyn.Data
 @using Archivyn.Models
@@ -6,30 +7,51 @@
 
 @inject ArchivynDbContext Db
 
-<h3>Keyword Types</h3>
+<PageTitle>Keyword Types</PageTitle>
 
-<div class="card p-3 mb-3">
+<h1>Keyword Types</h1>
 
+<div class="card p-3 mb-4">
     <div class="mb-3">
-        <label class="form-label">Keyword Name</label>
-        <input class="form-control" @bind="NewKeyword.Name" />
+        <label class="form-label" for="keyword-name">
+            Keyword Name
+        </label>
+
+        <input id="keyword-name"
+               class="form-control"
+               @bind="NewKeyword.KeyTypeName" />
     </div>
 
     <div class="mb-3">
-        <label class="form-label">Length</label>
-        <input class="form-control" type="number" @bind="NewKeyword.KeyTypeLen" />
+        <label class="form-label" for="keyword-length">
+            Length
+        </label>
+
+        <input id="keyword-length"
+               class="form-control"
+               type="number"
+               min="1"
+               @bind="NewKeyword.KeyTypeLen" />
     </div>
 
-    <button class="btn btn-primary" @onclick="SaveKeyword">
-        Save
-    </button>
+    <div>
+        <button type="button"
+                class="btn btn-primary"
+                disabled="@IsSaving"
+                @onclick="SaveKeywordAsync">
+            @(IsSaving ? "Saving..." : "Save")
+        </button>
+    </div>
 
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div class="alert @StatusCssClass mt-3 mb-0">
+            @StatusMessage
+        </div>
+    }
 </div>
 
-<hr />
-
 <table class="table table-striped">
-
     <thead>
         <tr>
             <th>ID</th>
@@ -39,44 +61,102 @@
     </thead>
 
     <tbody>
-
-        @foreach (var keyword in KeywordList)
+        @if (KeywordList.Count == 0)
         {
             <tr>
-                <td>@keyword.KeyTypeNum</td>
-                <td>@keyword.Name</td>
-                <td>@keyword.KeyTypeLen</td>
+                <td colspan="3">No keyword types have been created.</td>
             </tr>
         }
-
+        else
+        {
+            @foreach (var keyword in KeywordList)
+            {
+                <tr>
+                    <td>@keyword.KeyTypeNum</td>
+                    <td>@keyword.KeyTypeName</td>
+                    <td>@keyword.KeyTypeLen</td>
+                </tr>
+            }
+        }
     </tbody>
-
 </table>
 
 @code {
-
-    private List<KeyType> KeywordList = new();
-
+    private List<KeyType> KeywordList = [];
     private KeyType NewKeyword = new();
+
+    private bool IsSaving;
+    private string? StatusMessage;
+    private string StatusCssClass = "alert-success";
 
     protected override async Task OnInitializedAsync()
     {
-        KeywordList = await Db.KeyTypes
-            .OrderBy(k => k.Name)
-            .ToListAsync();
+        await LoadKeywordsAsync();
     }
 
-    private async Task SaveKeyword()
+    private async Task LoadKeywordsAsync()
     {
-        Db.KeyTypes.Add(NewKeyword);
-
-        await Db.SaveChangesAsync();
-
-        NewKeyword = new();
-
         KeywordList = await Db.KeyTypes
-            .OrderBy(k => k.Name)
+            .AsNoTracking()
+            .OrderBy(keyword => keyword.KeyTypeName)
             .ToListAsync();
     }
 
+    private async Task SaveKeywordAsync()
+    {
+        StatusMessage = null;
+
+        var name = NewKeyword.KeyTypeName?.Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            ShowError("Enter a keyword name.");
+            return;
+        }
+
+        if (NewKeyword.KeyTypeLen <= 0)
+        {
+            ShowError("Length must be greater than zero.");
+            return;
+        }
+
+        IsSaving = true;
+
+        try
+        {
+            var keyword = new KeyType
+            {
+                KeyTypeName = name,
+                KeyTypeLen = NewKeyword.KeyTypeLen,
+                KeyTypeMask = NewKeyword.KeyTypeMask,
+                KeyTypeFlags = NewKeyword.KeyTypeFlags,
+                DataType = NewKeyword.DataType
+            };
+
+            Db.KeyTypes.Add(keyword);
+            await Db.SaveChangesAsync();
+
+            NewKeyword = new KeyType();
+
+            await LoadKeywordsAsync();
+
+            StatusCssClass = "alert-success";
+            StatusMessage = $"Keyword type “{keyword.KeyTypeName}” was saved.";
+        }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+            ShowError($"The keyword could not be saved: {ex.Message}");
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
+    private void ShowError(string message)
+    {
+        StatusCssClass = "alert-danger";
+        StatusMessage = message;
+    }
 }
