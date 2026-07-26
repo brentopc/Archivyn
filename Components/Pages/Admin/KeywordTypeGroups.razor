@@ -1,5 +1,4 @@
 ﻿@page "/admin/keyword-type-groups"
-@rendermode InteractiveServer
 
 @using Archivyn.Data
 @using Archivyn.Models
@@ -243,6 +242,16 @@
     private bool IsBusy;
     private string? StatusMessage;
     private string StatusCssClass = "alert-success";
+
+    private int TestClicks;
+
+    private void TestClick()
+    {
+        TestClicks++;
+
+        Console.WriteLine(
+            $"Keyword Type Groups test clicked: {TestClicks}");
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -617,15 +626,5 @@
     {
         StatusCssClass = "alert-danger";
         StatusMessage = message;
-    }
-
-    private int TestClicks;
-
-    private void TestClick()
-    {
-        TestClicks++;
-
-        Console.WriteLine(
-            $"Keyword Type Groups test clicked: {TestClicks}");
     }
 }
