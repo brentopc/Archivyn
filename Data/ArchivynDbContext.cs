@@ -15,8 +15,12 @@ public class ArchivynDbContext : DbContext
     public DbSet<KeywordSetKeyType> KeywordSetKeyTypes => Set<KeywordSetKeyType>();
 
     public DbSet<ItemTypeGroup> ItemTypeGroups => Set<ItemTypeGroup>();
-
     public DbSet<DocumentType> DocumentTypes => Set<DocumentType>();
+
+    public DbSet<DocumentTypeKeyType> DocumentTypeKeyTypes =>
+    Set<DocumentTypeKeyType>();
+    public DbSet<DocumentTypeKeywordTypeGroup> DocumentTypeKeywordTypeGroups =>
+        Set<DocumentTypeKeywordTypeGroup>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -177,6 +181,80 @@ public class ArchivynDbContext : DbContext
                 .HasForeignKey(documentType =>
                     documentType.ItemTypeGroupNum)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<DocumentTypeKeyType>(entity =>
+        {
+            entity.ToTable("DOCTYPEKEYTYPE");
+
+            entity.HasKey(assignment => new
+            {
+                assignment.ItemTypeNum,
+                assignment.KeyTypeNum
+            });
+
+            entity.Property(assignment => assignment.ItemTypeNum)
+                .HasColumnName("itemtypenum");
+
+            entity.Property(assignment => assignment.KeyTypeNum)
+                .HasColumnName("keytypenum");
+
+            entity.Property(assignment => assignment.DisplayOrder)
+                .HasColumnName("displayorder");
+
+            entity.HasOne(assignment => assignment.DocumentType)
+                .WithMany(documentType =>
+                    documentType.KeywordTypeAssignments)
+                .HasForeignKey(assignment => assignment.ItemTypeNum)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(assignment => assignment.KeyType)
+                .WithMany(keyword => keyword.DocumentTypeAssignments)
+                .HasForeignKey(assignment => assignment.KeyTypeNum)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(assignment => new
+            {
+                assignment.ItemTypeNum,
+                assignment.DisplayOrder
+            });
+        });
+
+        modelBuilder.Entity<DocumentTypeKeywordTypeGroup>(entity =>
+        {
+            entity.ToTable("DOCTYPEKEYTYPEGROUP");
+
+            entity.HasKey(assignment => new
+            {
+                assignment.ItemTypeNum,
+                assignment.KeySetTableNum
+            });
+
+            entity.Property(assignment => assignment.ItemTypeNum)
+                .HasColumnName("itemtypenum");
+
+            entity.Property(assignment => assignment.KeySetTableNum)
+                .HasColumnName("keysettablenum");
+
+            entity.Property(assignment => assignment.DisplayOrder)
+                .HasColumnName("displayorder");
+
+            entity.HasOne(assignment => assignment.DocumentType)
+                .WithMany(documentType =>
+                    documentType.KeywordTypeGroupAssignments)
+                .HasForeignKey(assignment => assignment.ItemTypeNum)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(assignment => assignment.KeywordTypeGroup)
+                .WithMany(group => group.DocumentTypeAssignments)
+                .HasForeignKey(assignment => assignment.KeySetTableNum)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(assignment => new
+            {
+                assignment.ItemTypeNum,
+                assignment.DisplayOrder
+            });
         });
     }
 }

@@ -39,4 +39,10 @@ public sealed class DocumentType
     //public long RevisableByInst { get; set; }
 
     //public long ItemTypeFlags2 { get; set; }
+
+    public ICollection<DocumentTypeKeyType> KeywordTypeAssignments { get; set; }
+    = new List<DocumentTypeKeyType>();
+
+    public ICollection<DocumentTypeKeywordTypeGroup> KeywordTypeGroupAssignments { get; set; }
+        = new List<DocumentTypeKeywordTypeGroup>();
 }

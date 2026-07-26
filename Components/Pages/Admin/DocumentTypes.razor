@@ -117,6 +117,13 @@
                                 @(documentType.ItemTypeGroup?.ItemTypeGroupName ?? "Unassigned")
                             </td>
 
+                            <td>
+                                <a class="btn btn-sm btn-outline-primary me-2"
+                                   href="@($"/admin/document-types/{documentType.ItemTypeNum}/keywords")">
+                                    Keywords
+                                </a>
+                            </td>
+
                             <td class="text-end">
                                 <button type="button"
                                     class="btn btn-sm btn-outline-danger"

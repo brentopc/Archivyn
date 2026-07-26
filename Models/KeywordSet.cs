@@ -12,4 +12,7 @@ public sealed class KeywordSet
 
     public ICollection<KeywordSetKeyType> KeywordTypeMemberships { get; set; }
          = new List<KeywordSetKeyType>();
+
+    public ICollection<DocumentTypeKeywordTypeGroup> DocumentTypeAssignments
+    { get; set; } = new List<DocumentTypeKeywordTypeGroup>();
 }

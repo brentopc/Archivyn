@@ -1,0 +1,763 @@
+﻿@page "/admin/document-types/{ItemTypeNum:long}/keywords"
+
+@using Archivyn.Data
+@using Archivyn.Models
+@using Microsoft.EntityFrameworkCore
+
+@inject ArchivynDbContext Db
+
+<PageTitle>Document Type Keywords</PageTitle>
+
+@if (CurrentDocumentType is null)
+{
+    <div class="alert alert-danger">
+        @StatusMessage
+    </div>
+}
+else
+{
+    <div class="mb-4">
+        <h1>Document Type Keywords</h1>
+
+        <div class="text-muted">
+            Document Type:
+            <strong>@CurrentDocumentType.ItemTypeName</strong>
+        </div>
+
+        <div class="text-muted">
+            Document Type Group:
+            <strong>
+                @(CurrentDocumentType.ItemTypeGroup?.ItemTypeGroupName
+                    ?? "Unassigned")
+            </strong>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div class="alert @StatusCssClass">
+            @StatusMessage
+        </div>
+    }
+
+    <div class="row g-4">
+
+        <div class="col-lg-6">
+            <div class="card p-3 h-100">
+                <h4>Individual Keyword Types</h4>
+
+                <p class="text-muted">
+                    Add individual Keyword Types directly to this Document Type.
+                </p>
+
+                @if (AvailableKeywords.Count == 0)
+                {
+                    <p class="text-muted mb-0">
+                        No additional individual Keyword Types are available.
+                    </p>
+                }
+                else
+                {
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th>Keyword Type</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach (var keyword in AvailableKeywords)
+                            {
+                                <tr>
+                                    <td>@keyword.KeyTypeName</td>
+
+                                    <td class="text-end">
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-primary"
+                                                disabled="@IsBusy"
+                                                @onclick="() => AddKeywordAsync(
+                                                                                                keyword.KeyTypeNum)">
+Add
+</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card p-3 h-100">
+                <h4>Keyword Type Groups</h4>
+
+                <p class="text-muted">
+                    Add an entire standard Keyword Type Group.
+                </p>
+
+                @if (GroupOptions.Count == 0)
+                {
+                    <p class="text-muted mb-0">
+                        No additional Keyword Type Groups are available.
+                    </p>
+                }
+                else
+                {
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th>Group</th>
+                                <th>Status</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach (var option in GroupOptions)
+                            {
+                                <tr>
+                                    <td>
+                                        @option.Group.KeySetName
+                                    </td>
+
+                                    <td>
+                                        @if (option.IsEmpty)
+                                        {
+                                            <span class="text-warning">
+                                                Group has no keywords
+                                            </span>
+                                        }
+                                        else if (option.ConflictingKeywords.Count > 0)
+                                        {
+                                            <span class="text-danger">
+                                                Conflicts:
+                                                @string.Join(
+                                                    ", ",
+                                                    option.ConflictingKeywords)
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-success">
+                                                Available
+                                            </span>
+                                        }
+                                    </td>
+
+                                    <td class="text-end">
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-primary"
+                                                disabled="@(
+                                                IsBusy ||
+                                                option.IsEmpty ||
+                                                option.ConflictingKeywords.Count > 0)"
+                                                @onclick="() => AddGroupAsync(
+                                                                                                option.Group.KeySetTableNum)">
+Add
+</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+
+    </div>
+
+    <div class="row g-4 mt-1">
+
+        <div class="col-lg-6">
+            <div class="card p-3 h-100">
+                <h4>Directly Assigned Keywords</h4>
+
+                @if (DirectAssignments.Count == 0)
+                {
+                    <p class="text-muted mb-0">
+                        No individual Keyword Types are assigned.
+                    </p>
+                }
+                else
+                {
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th>Order</th>
+                                <th>Keyword Type</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach (var assignment in DirectAssignments)
+                            {
+                                <tr>
+                                    <td>@assignment.DisplayOrder</td>
+                                    <td>@assignment.KeyType.KeyTypeName</td>
+
+                                    <td class="text-end">
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-danger"
+                                                disabled="@IsBusy"
+                                                @onclick="() => RemoveKeywordAsync(
+                                                                                                assignment.KeyTypeNum)">
+Remove
+</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card p-3 h-100">
+                <h4>Assigned Keyword Type Groups</h4>
+
+                @if (GroupAssignments.Count == 0)
+                {
+                    <p class="text-muted mb-0">
+                        No Keyword Type Groups are assigned.
+                    </p>
+                }
+                else
+                {
+                    @foreach (var assignment in GroupAssignments)
+                    {
+                        <div class="border rounded p-3 mb-3">
+                            <div class="d-flex justify-content-between">
+                                <strong>
+                                    @assignment.KeywordTypeGroup.KeySetName
+                                </strong>
+
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-danger"
+                                        disabled="@IsBusy"
+                                        @onclick="() => RemoveGroupAsync(
+                                                                                assignment.KeySetTableNum)">
+Remove
+</button>
+                            </div>
+
+                            <div class="small text-muted mt-2">
+                                @string.Join(
+                                    ", ",
+                                    assignment.KeywordTypeGroup
+                                        .KeywordTypeMemberships
+                                        .OrderBy(membership =>
+                                            membership.DisplayOrder)
+                                        .Select(membership =>
+                                            membership.KeyType.KeyTypeName))
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+    </div>
+}
+
+@code {
+    [Parameter]
+    public long ItemTypeNum { get; set; }
+
+    private DocumentType? CurrentDocumentType;
+
+    private List<DocumentTypeKeyType> DirectAssignments = [];
+
+    private List<DocumentTypeKeywordTypeGroup> GroupAssignments = [];
+
+    private List<KeyType> AvailableKeywords = [];
+
+    private List<GroupOption> GroupOptions = [];
+
+    private bool IsBusy;
+
+    private string? StatusMessage;
+
+    private string StatusCssClass = "alert-success";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadPageAsync();
+    }
+
+    private async Task LoadPageAsync()
+    {
+        CurrentDocumentType = await Db.DocumentTypes
+            .AsNoTracking()
+            .Include(documentType =>
+                documentType.ItemTypeGroup)
+            .SingleOrDefaultAsync(documentType =>
+                documentType.ItemTypeNum == ItemTypeNum);
+
+        if (CurrentDocumentType is null)
+        {
+            ShowError("The Document Type does not exist.");
+            return;
+        }
+
+        DirectAssignments = await Db.DocumentTypeKeyTypes
+            .AsNoTracking()
+            .Include(assignment => assignment.KeyType)
+            .Where(assignment =>
+                assignment.ItemTypeNum == ItemTypeNum)
+            .OrderBy(assignment =>
+                assignment.DisplayOrder)
+            .ThenBy(assignment =>
+                assignment.KeyType.KeyTypeName)
+            .ToListAsync();
+
+        GroupAssignments =
+            await Db.DocumentTypeKeywordTypeGroups
+                .AsNoTracking()
+                .Include(assignment =>
+                    assignment.KeywordTypeGroup)
+                .ThenInclude(group =>
+                    group.KeywordTypeMemberships)
+                .ThenInclude(membership =>
+                    membership.KeyType)
+                .Where(assignment =>
+                    assignment.ItemTypeNum == ItemTypeNum)
+                .OrderBy(assignment =>
+                    assignment.DisplayOrder)
+                .ThenBy(assignment =>
+                    assignment.KeywordTypeGroup.KeySetName)
+                .ToListAsync();
+
+        var effectiveKeywordNumbers =
+            GetEffectiveKeywordNumbers();
+
+        AvailableKeywords = await Db.KeyTypes
+            .AsNoTracking()
+            .Where(keyword =>
+                !effectiveKeywordNumbers.Contains(
+                    keyword.KeyTypeNum))
+            .OrderBy(keyword =>
+                keyword.KeyTypeName)
+            .ToListAsync();
+
+        var assignedGroupNumbers = GroupAssignments
+            .Select(assignment =>
+                assignment.KeySetTableNum)
+            .ToHashSet();
+
+        var unassignedGroups = await Db.KeywordSets
+            .AsNoTracking()
+            .Where(group =>
+                group.IsKeyTypeGroup == 1 &&
+                !assignedGroupNumbers.Contains(
+                    group.KeySetTableNum))
+            .Include(group =>
+                group.KeywordTypeMemberships)
+            .ThenInclude(membership =>
+                membership.KeyType)
+            .OrderBy(group =>
+                group.KeySetName)
+            .ToListAsync();
+
+        GroupOptions = unassignedGroups
+            .Select(group =>
+            {
+                var conflicts = group.KeywordTypeMemberships
+                    .Where(membership =>
+                        effectiveKeywordNumbers.Contains(
+                            membership.KeyTypeNum))
+                    .Select(membership =>
+                        membership.KeyType.KeyTypeName)
+                    .Distinct()
+                    .OrderBy(name => name)
+                    .ToList();
+
+                return new GroupOption
+                {
+                    Group = group,
+                    IsEmpty =
+                        group.KeywordTypeMemberships.Count == 0,
+                    ConflictingKeywords = conflicts
+                };
+            })
+            .ToList();
+    }
+
+    private HashSet<long> GetEffectiveKeywordNumbers()
+    {
+        var effectiveKeywordNumbers = DirectAssignments
+            .Select(assignment =>
+                assignment.KeyTypeNum)
+            .ToHashSet();
+
+        foreach (var groupAssignment in GroupAssignments)
+        {
+            foreach (var membership in
+                groupAssignment.KeywordTypeGroup
+                    .KeywordTypeMemberships)
+            {
+                effectiveKeywordNumbers.Add(
+                    membership.KeyTypeNum);
+            }
+        }
+
+        return effectiveKeywordNumbers;
+    }
+
+    private async Task AddKeywordAsync(long keyTypeNum)
+    {
+        ClearStatus();
+
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+
+        try
+        {
+            var keyword = await Db.KeyTypes
+                .AsNoTracking()
+                .SingleOrDefaultAsync(item =>
+                    item.KeyTypeNum == keyTypeNum);
+
+            if (keyword is null)
+            {
+                ShowError("The Keyword Type no longer exists.");
+                return;
+            }
+
+            var directlyAssigned =
+                await Db.DocumentTypeKeyTypes
+                    .AsNoTracking()
+                    .AnyAsync(assignment =>
+                        assignment.ItemTypeNum == ItemTypeNum &&
+                        assignment.KeyTypeNum == keyTypeNum);
+
+            if (directlyAssigned)
+            {
+                ShowError(
+                    $"“{keyword.KeyTypeName}” is already directly assigned.");
+
+                return;
+            }
+
+            var assignedGroupNumbers =
+                await Db.DocumentTypeKeywordTypeGroups
+                    .AsNoTracking()
+                    .Where(assignment =>
+                        assignment.ItemTypeNum == ItemTypeNum)
+                    .Select(assignment =>
+                        assignment.KeySetTableNum)
+                    .ToListAsync();
+
+            var blockingGroups = await Db.KeywordSetKeyTypes
+                .AsNoTracking()
+                .Where(membership =>
+                    membership.KeyTypeNum == keyTypeNum &&
+                    assignedGroupNumbers.Contains(
+                        membership.KeySetTableNum))
+                .Select(membership =>
+                    membership.KeywordSet.KeySetName)
+                .Distinct()
+                .OrderBy(name => name)
+                .ToListAsync();
+
+            if (blockingGroups.Count > 0)
+            {
+                ShowError(
+                    $"“{keyword.KeyTypeName}” cannot be added directly " +
+                    $"because it is already supplied by: " +
+                    $"{string.Join(", ", blockingGroups)}.");
+
+                return;
+            }
+
+            var maximumOrder = await Db.DocumentTypeKeyTypes
+                .Where(assignment =>
+                    assignment.ItemTypeNum == ItemTypeNum)
+                .MaxAsync(assignment =>
+                    (int?)assignment.DisplayOrder);
+
+            Db.DocumentTypeKeyTypes.Add(
+                new DocumentTypeKeyType
+                {
+                    ItemTypeNum = ItemTypeNum,
+                    KeyTypeNum = keyTypeNum,
+                    DisplayOrder =
+                        (maximumOrder ?? 0) + 1
+                });
+
+            await Db.SaveChangesAsync();
+
+            Db.ChangeTracker.Clear();
+
+            await LoadPageAsync();
+
+            ShowSuccess(
+                $"“{keyword.KeyTypeName}” was added.");
+        }
+        catch (DbUpdateException)
+        {
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                "The Keyword Type could not be added because it is already assigned.");
+        }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                $"The Keyword Type could not be added: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task AddGroupAsync(long keySetTableNum)
+    {
+        ClearStatus();
+
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+
+        try
+        {
+            var group = await Db.KeywordSets
+                .AsNoTracking()
+                .Where(item =>
+                    item.KeySetTableNum == keySetTableNum &&
+                    item.IsKeyTypeGroup == 1)
+                .Include(item =>
+                    item.KeywordTypeMemberships)
+                .ThenInclude(membership =>
+                    membership.KeyType)
+                .SingleOrDefaultAsync();
+
+            if (group is null)
+            {
+                ShowError(
+                    "The standard Keyword Type Group no longer exists.");
+
+                return;
+            }
+
+            if (group.KeywordTypeMemberships.Count == 0)
+            {
+                ShowError(
+                    $"“{group.KeySetName}” contains no Keyword Types.");
+
+                return;
+            }
+
+            var alreadyAssigned =
+                await Db.DocumentTypeKeywordTypeGroups
+                    .AsNoTracking()
+                    .AnyAsync(assignment =>
+                        assignment.ItemTypeNum == ItemTypeNum &&
+                        assignment.KeySetTableNum == keySetTableNum);
+
+            if (alreadyAssigned)
+            {
+                ShowError(
+                    $"“{group.KeySetName}” is already assigned.");
+
+                return;
+            }
+
+            var directKeywordNumbers =
+                await Db.DocumentTypeKeyTypes
+                    .AsNoTracking()
+                    .Where(assignment =>
+                        assignment.ItemTypeNum == ItemTypeNum)
+                    .Select(assignment =>
+                        assignment.KeyTypeNum)
+                    .ToListAsync();
+
+            var otherAssignedGroupNumbers =
+                await Db.DocumentTypeKeywordTypeGroups
+                    .AsNoTracking()
+                    .Where(assignment =>
+                        assignment.ItemTypeNum == ItemTypeNum)
+                    .Select(assignment =>
+                        assignment.KeySetTableNum)
+                    .ToListAsync();
+
+            var groupKeywordNumbers =
+                await Db.KeywordSetKeyTypes
+                    .AsNoTracking()
+                    .Where(membership =>
+                        otherAssignedGroupNumbers.Contains(
+                            membership.KeySetTableNum))
+                    .Select(membership =>
+                        membership.KeyTypeNum)
+                    .Distinct()
+                    .ToListAsync();
+
+            var effectiveKeywordNumbers =
+                directKeywordNumbers
+                    .Concat(groupKeywordNumbers)
+                    .ToHashSet();
+
+            var conflictingKeywords =
+                group.KeywordTypeMemberships
+                    .Where(membership =>
+                        effectiveKeywordNumbers.Contains(
+                            membership.KeyTypeNum))
+                    .Select(membership =>
+                        membership.KeyType.KeyTypeName)
+                    .Distinct()
+                    .OrderBy(name => name)
+                    .ToList();
+
+            if (conflictingKeywords.Count > 0)
+            {
+                ShowError(
+                    $"“{group.KeySetName}” cannot be added because " +
+                    $"the following Keyword Type(s) are already on " +
+                    $"the Document Type: " +
+                    $"{string.Join(", ", conflictingKeywords)}.");
+
+                return;
+            }
+
+            var maximumOrder =
+                await Db.DocumentTypeKeywordTypeGroups
+                    .Where(assignment =>
+                        assignment.ItemTypeNum == ItemTypeNum)
+                    .MaxAsync(assignment =>
+                        (int?)assignment.DisplayOrder);
+
+            Db.DocumentTypeKeywordTypeGroups.Add(
+                new DocumentTypeKeywordTypeGroup
+                {
+                    ItemTypeNum = ItemTypeNum,
+                    KeySetTableNum = keySetTableNum,
+                    DisplayOrder =
+                        (maximumOrder ?? 0) + 1
+                });
+
+            await Db.SaveChangesAsync();
+
+            Db.ChangeTracker.Clear();
+
+            await LoadPageAsync();
+
+            ShowSuccess(
+                $"Keyword Type Group “{group.KeySetName}” was added.");
+        }
+        catch (DbUpdateException)
+        {
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                "The Keyword Type Group could not be added.");
+        }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                $"The Keyword Type Group could not be added: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task RemoveKeywordAsync(long keyTypeNum)
+    {
+        ClearStatus();
+
+        var assignment =
+            await Db.DocumentTypeKeyTypes
+                .SingleOrDefaultAsync(item =>
+                    item.ItemTypeNum == ItemTypeNum &&
+                    item.KeyTypeNum == keyTypeNum);
+
+        if (assignment is null)
+        {
+            ShowError(
+                "The direct Keyword Type assignment no longer exists.");
+
+            return;
+        }
+
+        Db.DocumentTypeKeyTypes.Remove(assignment);
+
+        await Db.SaveChangesAsync();
+
+        Db.ChangeTracker.Clear();
+
+        await LoadPageAsync();
+
+        ShowSuccess("The direct Keyword Type was removed.");
+    }
+
+    private async Task RemoveGroupAsync(long keySetTableNum)
+    {
+        ClearStatus();
+
+        var assignment =
+            await Db.DocumentTypeKeywordTypeGroups
+                .SingleOrDefaultAsync(item =>
+                    item.ItemTypeNum == ItemTypeNum &&
+                    item.KeySetTableNum == keySetTableNum);
+
+        if (assignment is null)
+        {
+            ShowError(
+                "The Keyword Type Group assignment no longer exists.");
+
+            return;
+        }
+
+        Db.DocumentTypeKeywordTypeGroups.Remove(assignment);
+
+        await Db.SaveChangesAsync();
+
+        Db.ChangeTracker.Clear();
+
+        await LoadPageAsync();
+
+        ShowSuccess("The Keyword Type Group was removed.");
+    }
+
+    private void ClearStatus()
+    {
+        StatusMessage = null;
+    }
+
+    private void ShowSuccess(string message)
+    {
+        StatusCssClass = "alert-success";
+        StatusMessage = message;
+    }
+
+    private void ShowError(string message)
+    {
+        StatusCssClass = "alert-danger";
+        StatusMessage = message;
+    }
+
+    private sealed class GroupOption
+    {
+        public KeywordSet Group { get; init; } = null!;
+
+        public bool IsEmpty { get; init; }
+
+        public List<string> ConflictingKeywords { get; init; } = [];
+    }
+}

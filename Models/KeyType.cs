@@ -16,5 +16,8 @@
 
         public ICollection<KeywordSetKeyType> KeywordSetMemberships { get; set; }
         = new List<KeywordSetKeyType>();
+
+        public ICollection<DocumentTypeKeyType> DocumentTypeAssignments { get; set; }
+        = new List<DocumentTypeKeyType>();
     }
 }
