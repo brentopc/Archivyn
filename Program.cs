@@ -24,8 +24,8 @@ namespace Archivyn
                 var db = scope.ServiceProvider
                     .GetRequiredService<ArchivynDbContext>();
 
-                db.Database.EnsureCreated();
-                //db.Database.Migrate();
+                //db.Database.EnsureCreated();
+                db.Database.Migrate();
             }
 
             // Configure the HTTP request pipeline.
