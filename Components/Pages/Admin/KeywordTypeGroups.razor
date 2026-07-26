@@ -10,18 +10,6 @@
 
 <h1>Keyword Type Groups</h1>
 
-<div class="alert alert-info">
-    <div>Renderer: @RendererInfo.Name</div>
-    <div>Interactive: @RendererInfo.IsInteractive</div>
-    <div>Test clicks: @TestClicks</div>
-</div>
-
-<button type="button"
-        class="btn btn-secondary mb-3"
-        @onclick="TestClick">
-    Test Blazor
-</button>
-
 <p class="text-muted">
     Create standard Keyword Type Groups and assign Keyword Types to them.
 </p>
@@ -242,16 +230,6 @@
     private bool IsBusy;
     private string? StatusMessage;
     private string StatusCssClass = "alert-success";
-
-    private int TestClicks;
-
-    private void TestClick()
-    {
-        TestClicks++;
-
-        Console.WriteLine(
-            $"Keyword Type Groups test clicked: {TestClicks}");
-    }
 
     protected override async Task OnInitializedAsync()
     {

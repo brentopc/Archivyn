@@ -12,8 +12,11 @@ public class ArchivynDbContext : DbContext
 
     public DbSet<KeyType> KeyTypes => Set<KeyType>();
     public DbSet<KeywordSet> KeywordSets => Set<KeywordSet>();
-    public DbSet<KeywordSetKeyType> KeywordSetKeyTypes =>
-        Set<KeywordSetKeyType>();
+    public DbSet<KeywordSetKeyType> KeywordSetKeyTypes => Set<KeywordSetKeyType>();
+
+    public DbSet<ItemTypeGroup> ItemTypeGroups => Set<ItemTypeGroup>();
+
+    public DbSet<DocumentType> DocumentTypes => Set<DocumentType>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -106,6 +109,74 @@ public class ArchivynDbContext : DbContext
                 e.KeySetTableNum,
                 e.DisplayOrder
             });
+        });
+
+        modelBuilder.Entity<ItemTypeGroup>(entity =>
+        {
+            entity.ToTable("ITEMTYPEGROUP");
+
+            entity.HasKey(group =>
+                group.ItemTypeGroupNum);
+
+            entity.Property(group =>
+                    group.ItemTypeGroupNum)
+                .HasColumnName("itemtypegroupnum")
+                .ValueGeneratedOnAdd();
+
+            entity.Property(group =>
+                    group.ItemTypeGroupName)
+                .HasColumnName("itemtypegroupname")
+                .HasMaxLength(66)
+                .IsRequired();
+
+            entity.Property(group =>
+                    group.Flags)
+                .HasColumnName("flags")
+                .HasDefaultValue(0L);
+
+            entity.HasIndex(group =>
+                    group.ItemTypeGroupName)
+                .IsUnique();
+        });
+
+        modelBuilder.Entity<DocumentType>(entity =>
+        {
+            entity.ToTable("DOCTYPE");
+
+            entity.HasKey(documentType =>
+                documentType.ItemTypeNum);
+
+            entity.Property(documentType =>
+                    documentType.ItemTypeNum)
+                .HasColumnName("itemtypenum")
+                .ValueGeneratedOnAdd();
+
+            entity.Property(documentType =>
+                    documentType.ItemTypeName)
+                .HasColumnName("itemtypename")
+                .HasMaxLength(66)
+                .IsRequired();
+
+            entity.Property(documentType =>
+                    documentType.ItemTypeGroupNum)
+                .HasColumnName("itemtypegroupnum");
+
+            entity.Property(documentType =>
+                    documentType.AutoNameString)
+                .HasColumnName("autonamestring")
+                .HasMaxLength(150);
+
+            entity.HasIndex(documentType =>
+                    documentType.ItemTypeName)
+                .IsUnique();
+
+            entity.HasOne(documentType =>
+                    documentType.ItemTypeGroup)
+                .WithMany(group =>
+                    group.DocumentTypes)
+                .HasForeignKey(documentType =>
+                    documentType.ItemTypeGroupNum)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

@@ -1,0 +1,384 @@
+﻿@page "/admin/document-types"
+
+@using Archivyn.Data
+@using Archivyn.Models
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.JSInterop
+
+@inject ArchivynDbContext Db
+@inject IJSRuntime JS
+
+<PageTitle>Document Types</PageTitle>
+
+<h1>Document Types</h1>
+
+<p class="text-muted">
+    Create Document Types and assign each one to a Document Type Group.
+</p>
+
+@if (!string.IsNullOrWhiteSpace(StatusMessage))
+{
+    <div class="alert @StatusCssClass">
+        @StatusMessage
+    </div>
+}
+
+<div class="card p-3 mb-4">
+    <h5>Create Document Type</h5>
+
+    @if (GroupList.Count == 0)
+    {
+        <div class="alert alert-warning mb-0">
+            Create a Document Type Group before creating a Document Type.
+        </div>
+    }
+    else
+    {
+        <div class="mb-3">
+            <label class="form-label"
+                   for="document-type-name">
+                Document Type Name
+            </label>
+
+            <input id="document-type-name"
+                   class="form-control"
+                   maxlength="66"
+                   placeholder="Example: AP - Invoice"
+                   @bind="NewDocumentTypeName" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label"
+                   for="document-type-group">
+                Document Type Group
+            </label>
+
+            <select id="document-type-group"
+                    class="form-select"
+                    @bind="SelectedGroupNum">
+                <option value="0">
+                    Select a Document Type Group
+                </option>
+
+                @foreach (var group in GroupList)
+                {
+                    <option value="@group.ItemTypeGroupNum">
+                        @group.ItemTypeGroupName
+                    </option>
+                }
+            </select>
+        </div>
+
+        <button type="button"
+                class="btn btn-primary"
+                disabled="@IsBusy"
+                @onclick="CreateDocumentTypeAsync">
+            @(IsBusy ? "Working..." : "Create Document Type")
+        </button>
+    }
+</div>
+
+<div class="card p-3">
+    <h5>Existing Document Types</h5>
+
+    @if (DocumentTypeList.Count == 0)
+    {
+        <p class="text-muted mb-0">
+            No Document Types have been created.
+        </p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Document Type</th>
+                        <th>Document Type Group</th>
+                        <th>In Use</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var documentType
+                        in DocumentTypeList)
+                    {
+                        <tr>
+                            <td>
+                                @documentType.ItemTypeNum
+                            </td>
+
+                            <td>
+                                @documentType.ItemTypeName
+                            </td>
+
+                            <td>
+                                @documentType.ItemTypeGroup
+                                .ItemTypeGroupName
+                            </td>
+
+                            <td class="text-end">
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-danger"
+                                        disabled="@IsBusy"
+                                        @onclick="() =>
+                                                                                DeleteDocumentTypeAsync(
+                                                                                    documentType.ItemTypeNum)">
+Delete
+</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private List<ItemTypeGroup> GroupList = [];
+
+    private List<DocumentType> DocumentTypeList = [];
+
+    private string NewDocumentTypeName = string.Empty;
+
+    private long SelectedGroupNum;
+
+    private bool IsBusy;
+
+    private string? StatusMessage;
+
+    private string StatusCssClass = "alert-success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPageAsync();
+    }
+
+    private async Task LoadPageAsync()
+    {
+        GroupList = await Db.ItemTypeGroups
+            .AsNoTracking()
+            .OrderBy(group =>
+                group.ItemTypeGroupName)
+            .ToListAsync();
+
+        DocumentTypeList = await Db.DocumentTypes
+            .AsNoTracking()
+            .Include(documentType =>
+                documentType.ItemTypeGroup)
+            .OrderBy(documentType =>
+                documentType.ItemTypeGroup
+                    .ItemTypeGroupName)
+            .ThenBy(documentType =>
+                documentType.ItemTypeName)
+            .ToListAsync();
+    }
+
+    private async Task CreateDocumentTypeAsync()
+    {
+        ClearStatus();
+
+        if (IsBusy)
+        {
+            return;
+        }
+
+        var name = NewDocumentTypeName.Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            ShowError(
+                "Enter a Document Type name.");
+
+            return;
+        }
+
+        if (name.Length > 66)
+        {
+            ShowError(
+                "The Document Type name cannot exceed 66 characters.");
+
+            return;
+        }
+
+        if (SelectedGroupNum <= 0)
+        {
+            ShowError(
+                "Select a Document Type Group.");
+
+            return;
+        }
+
+        var groupExists =
+            await Db.ItemTypeGroups
+                .AsNoTracking()
+                .AnyAsync(group =>
+                    group.ItemTypeGroupNum
+                        == SelectedGroupNum);
+
+        if (!groupExists)
+        {
+            ShowError(
+                "The selected Document Type Group no longer exists.");
+
+            return;
+        }
+
+        var normalizedName = name.ToLower();
+
+        var duplicateExists =
+            await Db.DocumentTypes
+                .AsNoTracking()
+                .AnyAsync(documentType =>
+                    documentType.ItemTypeName.ToLower()
+                        == normalizedName);
+
+        if (duplicateExists)
+        {
+            ShowError(
+                $"A Document Type named “{name}” already exists.");
+
+            return;
+        }
+
+        IsBusy = true;
+
+        try
+        {
+            var documentType = new DocumentType
+            {
+                ItemTypeName = name,
+                ItemTypeGroupNum = SelectedGroupNum,
+                AutoNameString = null,
+            };
+
+            Db.DocumentTypes.Add(documentType);
+
+            await Db.SaveChangesAsync();
+
+            NewDocumentTypeName = string.Empty;
+            SelectedGroupNum = 0;
+
+            Db.ChangeTracker.Clear();
+
+            await LoadPageAsync();
+
+            ShowSuccess(
+                $"Document Type “{name}” was created.");
+        }
+        catch (DbUpdateException)
+        {
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                $"A Document Type named “{name}” already exists.");
+        }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                $"The Document Type could not be created: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task DeleteDocumentTypeAsync(
+        long itemTypeNum)
+    {
+        ClearStatus();
+
+        if (IsBusy)
+        {
+            return;
+        }
+
+        var documentType =
+            await Db.DocumentTypes
+                .AsNoTracking()
+                .SingleOrDefaultAsync(item =>
+                    item.ItemTypeNum
+                        == itemTypeNum);
+
+        if (documentType is null)
+        {
+            ShowError(
+                "The Document Type no longer exists.");
+
+            await LoadPageAsync();
+            return;
+        }
+
+        var confirmed = await JS.InvokeAsync<bool>(
+            "confirm",
+            $"Delete Document Type “{documentType.ItemTypeName}”?");
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        IsBusy = true;
+
+        try
+        {
+            var trackedDocumentType =
+                await Db.DocumentTypes.FindAsync(
+                    itemTypeNum);
+
+            if (trackedDocumentType is null)
+            {
+                ShowError(
+                    "The Document Type no longer exists.");
+
+                return;
+            }
+
+            Db.DocumentTypes.Remove(
+                trackedDocumentType);
+
+            await Db.SaveChangesAsync();
+
+            Db.ChangeTracker.Clear();
+
+            await LoadPageAsync();
+
+            ShowSuccess(
+                $"Document Type “{documentType.ItemTypeName}” was deleted.");
+        }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                $"The Document Type could not be deleted: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void ClearStatus()
+    {
+        StatusMessage = null;
+    }
+
+    private void ShowSuccess(string message)
+    {
+        StatusCssClass = "alert-success";
+        StatusMessage = message;
+    }
+
+    private void ShowError(string message)
+    {
+        StatusCssClass = "alert-danger";
+        StatusMessage = message;
+    }
+}

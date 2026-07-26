@@ -1,0 +1,312 @@
+﻿@page "/admin/document-type-groups"
+
+@using Archivyn.Data
+@using Archivyn.Models
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.JSInterop
+
+@inject ArchivynDbContext Db
+@inject IJSRuntime JS
+
+<PageTitle>Document Type Groups</PageTitle>
+
+<h1>Document Type Groups</h1>
+
+<p class="text-muted">
+    Create groups used to organize Document Types.
+</p>
+
+@if (!string.IsNullOrWhiteSpace(StatusMessage))
+{
+    <div class="alert @StatusCssClass">
+        @StatusMessage
+    </div>
+}
+
+<div class="card p-3 mb-4">
+    <h5>Create Document Type Group</h5>
+
+    <div class="mb-3">
+        <label class="form-label"
+               for="document-type-group-name">
+            Group Name
+        </label>
+
+        <input id="document-type-group-name"
+               class="form-control"
+               maxlength="66"
+               placeholder="Example: Accounts Payable"
+               @bind="NewGroupName" />
+    </div>
+
+    <button type="button"
+            class="btn btn-primary"
+            disabled="@IsBusy"
+            @onclick="CreateGroupAsync">
+        @(IsBusy ? "Working..." : "Create Group")
+    </button>
+</div>
+
+<div class="card p-3">
+    <h5>Existing Document Type Groups</h5>
+
+    @if (GroupList.Count == 0)
+    {
+        <p class="text-muted mb-0">
+            No Document Type Groups have been created.
+        </p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Group Name</th>
+                        <th>Document Types</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var group in GroupList)
+                    {
+                        <tr>
+                            <td>@group.ItemTypeGroupNum</td>
+
+                            <td>@group.ItemTypeGroupName</td>
+
+                            <td>@group.DocumentTypes.Count</td>
+
+                            <td class="text-end">
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-danger"
+                                        disabled="@IsBusy"
+                                        @onclick="() => DeleteGroupAsync(group.ItemTypeGroupNum)">
+                                    @(IsBusy ? "Deleting..." : "Delete")
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private List<ItemTypeGroup> GroupList = [];
+
+    private string NewGroupName = string.Empty;
+
+    private bool IsBusy;
+
+    private string? StatusMessage;
+
+    private string StatusCssClass = "alert-success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGroupsAsync();
+    }
+
+    private async Task LoadGroupsAsync()
+    {
+        GroupList = await Db.ItemTypeGroups
+            .AsNoTracking()
+            .Include(group => group.DocumentTypes)
+            .OrderBy(group => group.ItemTypeGroupName)
+            .ToListAsync();
+    }
+
+    private async Task CreateGroupAsync()
+    {
+        ClearStatus();
+
+        if (IsBusy)
+        {
+            return;
+        }
+
+        var name = NewGroupName.Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            ShowError(
+                "Enter a Document Type Group name.");
+
+            return;
+        }
+
+        if (name.Length > 66)
+        {
+            ShowError(
+                "The group name cannot exceed 66 characters.");
+
+            return;
+        }
+
+        var normalizedName = name.ToLower();
+
+        var duplicateExists = await Db.ItemTypeGroups
+            .AsNoTracking()
+            .AnyAsync(group =>
+                group.ItemTypeGroupName.ToLower()
+                    == normalizedName);
+
+        if (duplicateExists)
+        {
+            ShowError(
+                $"A Document Type Group named “{name}” already exists.");
+
+            return;
+        }
+
+        IsBusy = true;
+
+        try
+        {
+            var group = new ItemTypeGroup
+            {
+                ItemTypeGroupName = name,
+                Flags = 0
+            };
+
+            Db.ItemTypeGroups.Add(group);
+
+            await Db.SaveChangesAsync();
+
+            NewGroupName = string.Empty;
+
+            Db.ChangeTracker.Clear();
+
+            await LoadGroupsAsync();
+
+            ShowSuccess(
+                $"Document Type Group “{name}” was created.");
+        }
+        catch (DbUpdateException)
+        {
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                $"A Document Type Group named “{name}” already exists.");
+        }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                $"The Document Type Group could not be created: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task DeleteGroupAsync(
+        long itemTypeGroupNum)
+    {
+        ClearStatus();
+
+        if (IsBusy)
+        {
+            return;
+        }
+
+        var group = await Db.ItemTypeGroups
+            .AsNoTracking()
+            .SingleOrDefaultAsync(item =>
+                item.ItemTypeGroupNum
+                    == itemTypeGroupNum);
+
+        if (group is null)
+        {
+            ShowError(
+                "The Document Type Group no longer exists.");
+
+            await LoadGroupsAsync();
+            return;
+        }
+
+        var documentTypeCount =
+            await Db.DocumentTypes.CountAsync(documentType =>
+                documentType.ItemTypeGroupNum
+                    == itemTypeGroupNum);
+
+        if (documentTypeCount > 0)
+        {
+            ShowError(
+                $"“{group.ItemTypeGroupName}” cannot be deleted because it contains {documentTypeCount} Document Type(s).");
+
+            return;
+        }
+
+        var confirmed = await JS.InvokeAsync<bool>(
+            "confirm",
+            $"Delete Document Type Group “{group.ItemTypeGroupName}”?");
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        IsBusy = true;
+
+        try
+        {
+            var trackedGroup =
+                await Db.ItemTypeGroups.FindAsync(
+                    itemTypeGroupNum);
+
+            if (trackedGroup is null)
+            {
+                ShowError(
+                    "The Document Type Group no longer exists.");
+
+                return;
+            }
+
+            Db.ItemTypeGroups.Remove(trackedGroup);
+
+            await Db.SaveChangesAsync();
+
+            Db.ChangeTracker.Clear();
+
+            await LoadGroupsAsync();
+
+            ShowSuccess(
+                $"Document Type Group “{group.ItemTypeGroupName}” was deleted.");
+        }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                $"The Document Type Group could not be deleted: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void ClearStatus()
+    {
+        StatusMessage = null;
+    }
+
+    private void ShowSuccess(string message)
+    {
+        StatusCssClass = "alert-success";
+        StatusMessage = message;
+    }
+
+    private void ShowError(string message)
+    {
+        StatusCssClass = "alert-danger";
+        StatusMessage = message;
+    }
+}
