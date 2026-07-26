@@ -73,7 +73,7 @@
                 class="btn btn-primary"
                 disabled="@IsBusy"
                 @onclick="CreateDocumentTypeAsync">
-            @(IsBusy ? "Working..." : "Create Document Type")
+            @(IsBusy ? "Creating..." : "Create Document Type")
         </button>
     }
 </div>
@@ -96,7 +96,6 @@
                         <th>ID</th>
                         <th>Document Type</th>
                         <th>Document Type Group</th>
-                        <th>In Use</th>
                         <th class="text-end">Actions</th>
                     </tr>
                 </thead>
@@ -115,19 +114,16 @@
                             </td>
 
                             <td>
-                                @documentType.ItemTypeGroup
-                                .ItemTypeGroupName
+                                @documentType.ItemTypeGroup?.ItemTypeGroupName ?? "Unassigned"
                             </td>
 
                             <td class="text-end">
                                 <button type="button"
-                                        class="btn btn-sm btn-outline-danger"
-                                        disabled="@IsBusy"
-                                        @onclick="() =>
-                                                                                DeleteDocumentTypeAsync(
-                                                                                    documentType.ItemTypeNum)">
-Delete
-</button>
+                                    class="btn btn-sm btn-outline-danger"
+                                    disabled="@IsBusy"
+                                        @onclick="() => DeleteDocumentTypeAsync(documentType.ItemTypeNum)">
+                                    @(IsBusy ? "Deleting..." : "Delete")
+                                </button>
                             </td>
                         </tr>
                     }
