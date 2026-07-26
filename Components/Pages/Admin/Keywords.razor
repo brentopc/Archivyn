@@ -80,8 +80,9 @@
                     <td class="text-end">
                         <button type="button"
                                 class="btn btn-sm btn-outline-danger"
+                                disabled="@IsBusy"
                                 @onclick="() => DeleteKeywordAsync(keyword)">
-                            Delete
+                            @(IsBusy ? "Deleting..." : "Delete")
                         </button>
                     </td>
                 </tr>
@@ -183,44 +184,93 @@
     {
         StatusMessage = null;
 
+        if (IsBusy)
+        {
+            return;
+        }
+
+        var assignedGroups = await Db.KeywordSetKeyTypes
+        .AsNoTracking()
+        .Where(membership =>
+            membership.KeyTypeNum == keyword.KeyTypeNum &&
+            membership.KeywordSet.IsKeyTypeGroup == 1)
+        .Select(membership =>
+            membership.KeywordSet.KeySetName)
+        .Distinct()
+        .OrderBy(groupName => groupName)
+        .ToListAsync();
+
+        if (assignedGroups.Count > 0)
+        {
+            var groupNames = string.Join(", ", assignedGroups);
+
+            ShowError(
+                $"Keyword Type “{keyword.KeyTypeName}” cannot be deleted " +
+                $"because it is assigned to the following Keyword Type " +
+                $"Group(s): {groupNames}. Remove it from those groups first.");
+
+            return;
+        }
+
         var confirmed = await JS.InvokeAsync<bool>(
             "confirm",
-            $"Delete keyword type “{keyword.KeyTypeName}”?");
+            $"Delete Keyword Type “{keyword.KeyTypeName}”?");
 
         if (!confirmed)
         {
             return;
         }
 
+        IsBusy = true;
+
         try
         {
             var existingKeyword = await Db.KeyTypes
-                .FindAsync(keyword.KeyTypeNum);
+                .SingleOrDefaultAsync(item =>
+                    item.KeyTypeNum == keyword.KeyTypeNum);
 
             if (existingKeyword is null)
             {
-                ShowError(
-                    "The keyword type no longer exists.");
+                ShowError("The Keyword Type no longer exists.");
 
                 await LoadKeywordsAsync();
                 return;
             }
 
             Db.KeyTypes.Remove(existingKeyword);
+
             await Db.SaveChangesAsync();
+
+            Db.ChangeTracker.Clear();
 
             await LoadKeywordsAsync();
 
             StatusCssClass = "alert-success";
             StatusMessage =
-                $"Keyword type “{keyword.KeyTypeName}” was deleted.";
+                $"Keyword Type “{keyword.KeyTypeName}” was deleted.";
+        }
+        catch (DbUpdateException)
+        {
+            // Fallback protection in case the keyword is assigned
+            // after the initial membership check.
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                $"Keyword Type “{keyword.KeyTypeName}” cannot be deleted " +
+                "because it is currently in use.");
+
+            await LoadKeywordsAsync();
         }
         catch (Exception ex)
         {
             Db.ChangeTracker.Clear();
 
             ShowError(
-                $"The keyword could not be deleted: {ex.Message}");
+                $"The Keyword Type could not be deleted: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 
