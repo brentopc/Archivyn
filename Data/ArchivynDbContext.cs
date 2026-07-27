@@ -17,10 +17,8 @@ public class ArchivynDbContext : DbContext
     public DbSet<ItemTypeGroup> ItemTypeGroups => Set<ItemTypeGroup>();
     public DbSet<DocumentType> DocumentTypes => Set<DocumentType>();
 
-    public DbSet<DocumentTypeKeyType> DocumentTypeKeyTypes =>
-    Set<DocumentTypeKeyType>();
-    public DbSet<DocumentTypeKeywordTypeGroup> DocumentTypeKeywordTypeGroups =>
-        Set<DocumentTypeKeywordTypeGroup>();
+    public DbSet<DocumentTypeKeyType> DocumentTypeKeyTypes => Set<DocumentTypeKeyType>();
+    public DbSet<DocumentTypeKeywordTypeGroup> DocumentTypeKeywordTypeGroups => Set<DocumentTypeKeywordTypeGroup>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

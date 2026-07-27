@@ -1,11 +1,38 @@
 ﻿@inherits LayoutComponentBase
+@using MudBlazor;
 
-<div class="min-vh-100 bg-light">
+<MudThemeProvider IsDarkMode="true"/>
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
 
-    <NavMenu />
+<MudDrawerContainer Class="mud-height-full">
+    <MudDrawer Open="true" Elevation="0" Variant="@DrawerVariant.Persistent" Color="Color.Primary">
+        <MudDrawerHeader>
+            <MudText Typo="Typo.h6">Archivyn</MudText>
+        </MudDrawerHeader>
+        <MudNavMenu Color="Color.Secondary">
+            <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard" IconColor="Color.Inherit" Href="/">Dashboard</MudNavLink>
+            <MudNavGroup Title="Admin" Expanded="false" Icon="@Icons.Material.Filled.AdminPanelSettings" IconColor="Color.Inherit">
+                <MudNavGroup Title="Keywords" Expanded="false" Icon="@Icons.Material.Filled.Key" IconColor="Color.Inherit">
+                    <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.DataObject" IconColor="Color.Inherit" Href="/admin/keyword-types">Keyword Types</MudNavLink>
+                    <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.DataArray" IconColor="Color.Inherit" Href="/admin/keyword-type-groups">Keyword Groups</MudNavLink>
+                </MudNavGroup>
+                <MudNavGroup Title="Documents" Expanded="false" Icon="@Icons.Material.Filled.Newspaper" IconColor="Color.Inherit">
+                    <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.DataObject" IconColor="Color.Inherit" Href="/admin/document-types">Document Types</MudNavLink>
+                    <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.DataArray" IconColor="Color.Inherit" Href="/admin/document-type-groups">Document Type Groups</MudNavLink>
+                </MudNavGroup>
+            </MudNavGroup>
+        </MudNavMenu>
+    </MudDrawer>
 
-    <main class="container-fluid py-4">
-        @Body
-    </main>
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudDrawerContainer>
 
-</div>
+@code {
+    
+}

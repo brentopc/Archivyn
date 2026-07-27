@@ -1,6 +1,7 @@
 using Archivyn.Components;
 using Archivyn.Data;
 using Microsoft.EntityFrameworkCore;
+using MudBlazor.Services;
 
 namespace Archivyn
 {
@@ -15,7 +16,23 @@ namespace Archivyn
                 .AddInteractiveServerComponents();
 
             builder.Services.AddDbContext<ArchivynDbContext>(options =>
-                options.UseNpgsql(builder.Configuration.GetConnectionString("Archivyn")));
+            {
+                if (builder.Environment.IsDevelopment())
+                {
+                    options.UseInMemoryDatabase("ArchivynLocal");
+                }
+                else
+                {
+                    var connectionString =
+                        builder.Configuration.GetConnectionString("Archivyn")
+                        ?? throw new InvalidOperationException(
+                            "The Archivyn database connection string is missing.");
+
+                    options.UseNpgsql(connectionString);
+                }
+            });
+
+            builder.Services.AddMudServices();
 
             var app = builder.Build();
 
@@ -24,8 +41,14 @@ namespace Archivyn
                 var db = scope.ServiceProvider
                     .GetRequiredService<ArchivynDbContext>();
 
-                //db.Database.EnsureCreated();
-                db.Database.Migrate();
+                if (app.Environment.IsDevelopment())
+                {
+                    db.Database.EnsureCreated();
+                }
+                else
+                {
+                    db.Database.Migrate();
+                }
             }
 
             // Configure the HTTP request pipeline.

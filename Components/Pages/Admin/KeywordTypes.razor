@@ -1,5 +1,8 @@
 ﻿@page "/admin/keyword-types"
 
+@inherits LayoutComponentBase
+@using MudBlazor
+
 @using Archivyn.Data
 @using Archivyn.Models
 @using Microsoft.EntityFrameworkCore
@@ -10,89 +13,53 @@
 
 <PageTitle>Keyword Types</PageTitle>
 
-<h1>Keyword Types</h1>
+<MudText Typo="Typo.h5">Keyword Name</MudText>
+<MudTextField class="mb-4" @bind-Value="NewKeyword.KeyTypeName" Label="" Variant="Variant.Outlined"></MudTextField>
 
-<div class="card p-3 mb-4">
-    <div class="mb-3">
-        <label class="form-label" for="keyword-name">
-            Keyword Name
-        </label>
+<MudText Typo="Typo.h5">Length</MudText>
+<MudTextField class="mb-4" type="number" @bind-Value="NewKeyword.KeyTypeLen" Label="" Variant="Variant.Outlined"></MudTextField>
 
-        <input id="keyword-name"
-               class="form-control"
-               @bind="NewKeyword.KeyTypeName" />
-    </div>
+<MudButton class="mb-4"
+    Variant="Variant.Filled"
+    Color="Color.Primary"
+    disabled="@IsBusy"
+    @onclick="CreateKeywordAsync">
+    @(IsBusy ? "Creating..." : "Create Keyword")
+</MudButton>
 
-    <div class="mb-3">
-        <label class="form-label" for="keyword-length">
-            Length
-        </label>
+@if (!string.IsNullOrWhiteSpace(StatusMessage))
+{
+    <MudText class="mb-4" Typo="Typo.h6" Color="Color.Secondary">@StatusMessage</MudText>
+}
 
-        <input id="keyword-length"
-               class="form-control"
-               type="number"
-               min="1"
-               @bind="NewKeyword.KeyTypeLen" />
-    </div>
-
-    <div>
-        <button type="button"
-                class="btn btn-primary"
-                disabled="@IsBusy"
-                @onclick="CreateKeywordAsync">
-            @(IsBusy ? "Creating..." : "Create Keyword")
-        </button>
-    </div>
-
-    @if (!string.IsNullOrWhiteSpace(StatusMessage))
-    {
-        <div class="alert @StatusCssClass mt-3 mb-0">
-            @StatusMessage
-        </div>
-    }
-</div>
-
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Keyword</th>
-            <th>Length</th>
-            <th class="text-end">Actions</th>
-        </tr>
-    </thead>
-
-    <tbody>
-        @if (KeywordList.Count == 0)
-        {
-            <tr>
-                <td colspan="4">No keyword types have been created.</td>
-            </tr>
-        }
-        else
-        {
-            @foreach (var keyword in KeywordList)
-            {
-                <tr>
-                    <td>@keyword.KeyTypeNum</td>
-                    <td>@keyword.KeyTypeName</td>
-                    <td>@keyword.KeyTypeLen</td>
-                    <td class="text-end">
-                        <button type="button"
-                                class="btn btn-sm btn-outline-danger"
+<MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge" Lef>
+    <MudPaper Height="400px" Width="100%">
+        <MudTable Items="KeywordList" Height="350px" Virtualize="true" FixedHeader="true">
+            <HeaderContent>
+                <MudTh>ID</MudTh>
+                <MudTh>Name</MudTh>
+                <MudTh>Length</MudTh>
+                <MudTh>Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="ID">@context.KeyTypeNum</MudTd>
+                <MudTd DataLabel="Name">@context.KeyTypeName</MudTd>
+                <MudTd DataLabel="Length">@context.KeyTypeLen</MudTd>
+                <MudTd DataLabel="Actions">
+                    <MudButton Class="mx-2" Variant="Variant.Filled"
+                                Color="Color.Secondary"
                                 disabled="@IsBusy"
-                                @onclick="() => DeleteKeywordAsync(keyword)">
-                            @(IsBusy ? "Deleting..." : "Delete")
-                        </button>
-                    </td>
-                </tr>
-            }
-        }
-    </tbody>
-</table>
+                                @onclick="() => DeleteKeywordAsync(context)">
+                        @(IsBusy ? "Deleting..." : "Delete")
+                    </MudButton>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
+</MudContainer>
 
 @code {
-    private List<KeyType> KeywordList = [];
+    private List<KeyType> KeywordList = new List<KeyType>();
     private KeyType NewKeyword = new();
 
     private bool IsBusy;
