@@ -1,63 +1,32 @@
-﻿<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container-fluid">
+﻿@inherits LayoutComponentBase
 
-        <a class="navbar-brand" href="/">
-            Archivyn
-        </a>
+@using MudBlazor
 
-        <button class="navbar-toggler"
-                type="button"
-                data-bs-toggle="collapse"
-                data-bs-target="#archivynNavigation"
-                aria-controls="archivynNavigation"
-                aria-expanded="false"
-                aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
+<MudThemeProvider/>
+<MudPopoverProvider/>
+<MudDialogProvider/>
+<MudSnackbarProvider/>
 
-        <div class="collapse navbar-collapse"
-             id="archivynNavigation">
-
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-
-                <li class="nav-item">
-                    <NavLink class="nav-link"
-                             href=""
-                             Match="NavLinkMatch.All">
-                        Home
-                    </NavLink>
-                </li>
-
-                <li class="nav-item">
-                    <NavLink class="nav-link"
-                             href="admin/keywords">
-                        Keyword Types
-                    </NavLink>
-                </li>
-
-                <li class="nav-item">
-                    <NavLink class="nav-link"
-                             href="admin/keyword-type-groups">
-                        Keyword Type Groups
-                    </NavLink>
-                </li>
-
-                <li class="nav-item">
-                    <NavLink class="nav-link"
-                             href="admin/document-type-groups">
-                        Document Type Groups
-                    </NavLink>
-                </li>
-
-                <li class="nav-item">
-                    <NavLink class="nav-link"
-                             href="admin/document-types">
-                        Document Types
-                    </NavLink>
-                </li>
-            </ul>
-
-        </div>
-
-    </div>
-</nav>
+<MudLayout>
+    <MudAppBar>
+        Archivyn
+    </MudAppBar>
+    <MudDrawer Open="true">
+        <MudNavMenu>
+            <MudNavLink Href="/" Match="NavLinkMatch.All">Dashboard</MudNavLink>
+            <MudNavGroup Title="Admin" Expanded="false">
+                <MudNavGroup Title="Keywords" Expanded="false">
+                    <MudNavLink Href="/keyword-types"  Match="NavLinkMatch.Prefix">Keyword Types</MudNavLink>
+                    <MudNavLink Href="/keyword-type-groups"  Match="NavLinkMatch.Prefix">Keyword Groups</MudNavLink>
+                </MudNavGroup>
+                <MudNavGroup Title="Documents" Expanded="false">
+                    <MudNavLink Href="/document-types"  Match="NavLinkMatch.Prefix">Document Types</MudNavLink>
+                    <MudNavLink Href="/document-type-groups"  Match="NavLinkMatch.Prefix">Document Type Groups</MudNavLink>
+                </MudNavGroup>
+            </MudNavGroup>
+        </MudNavMenu>
+    </MudDrawer>
+    <MudMainContent>
+        
+    </MudMainContent>
+</MudLayout>
