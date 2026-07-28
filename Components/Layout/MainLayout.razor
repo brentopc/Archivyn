@@ -1,7 +1,7 @@
 ﻿@inherits LayoutComponentBase
 @using MudBlazor;
 
-<MudThemeProvider IsDarkMode="true"/>
+<MudThemeProvider Theme="_currentTheme" IsDarkMode="true" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -11,7 +11,7 @@
                Fixed="true"
                Anchor="Anchor.Start"
                Elevation="1"
-               Variant="DrawerVariant.Persistent"
+               Variant="DrawerVariant.Responsive"
                Color="Color.Primary"
                Width="260px">
         <MudDrawerHeader>
@@ -40,5 +40,19 @@
 </MudLayout>
 
 @code {
-    
+    private readonly MudTheme _currentTheme = new()
+    {
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#8FA31E",
+            Secondary = "#556B2F",
+            Info = "#EFF5D2",
+            Success = "#00FF00",
+            Warning = "#FF9900",
+            Error = "#FF0000",
+            AppbarBackground = "#212121",
+            TextPrimary = "#EFF5D2",
+            TextSecondary = "#EFF5D2"
+        }
+    };
 }
