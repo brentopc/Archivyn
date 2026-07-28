@@ -43,7 +43,7 @@ else
         <MudText class="mb-4" Typo="Typo.h6" Color="Color.Secondary">@StatusMessage</MudText>
     }
 
-    <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge" Lef>
+    <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge">
         <MudPaper Height="400px" Width="100%">
             <MudTable Items="DocumentTypeList" Height="350px" Virtualize="true" FixedHeader="true">
                 <HeaderContent>
@@ -89,8 +89,6 @@ else
 
     private string? StatusMessage;
 
-    private string StatusCssClass = "alert-success";
-
     protected override async Task OnInitializedAsync()
     {
         await LoadPageAsync();
@@ -118,7 +116,7 @@ else
 
     private async Task CreateDocumentTypeAsync()
     {
-        ClearStatus();
+        StatusMessage = null;
 
         if (IsBusy)
         {
@@ -204,9 +202,6 @@ else
             Db.ChangeTracker.Clear();
 
             await LoadPageAsync();
-
-            ShowSuccess(
-                $"Document Type “{name}” was created.");
         }
         catch (DbUpdateException)
         {
@@ -231,7 +226,7 @@ else
     private async Task DeleteDocumentTypeAsync(
         long itemTypeNum)
     {
-        ClearStatus();
+        StatusMessage = null;
 
         if (IsBusy)
         {
@@ -287,9 +282,6 @@ else
             Db.ChangeTracker.Clear();
 
             await LoadPageAsync();
-
-            ShowSuccess(
-                $"Document Type “{documentType.ItemTypeName}” was deleted.");
         }
         catch (Exception ex)
         {
@@ -309,15 +301,8 @@ else
         StatusMessage = null;
     }
 
-    private void ShowSuccess(string message)
-    {
-        StatusCssClass = "alert-success";
-        StatusMessage = message;
-    }
-
     private void ShowError(string message)
     {
-        StatusCssClass = "alert-danger";
         StatusMessage = message;
     }
 }

@@ -1,5 +1,8 @@
 ﻿@page "/admin/document-types/{ItemTypeNum:long}/keywords"
 
+@inherits LayoutComponentBase
+@using MudBlazor
+
 @using Archivyn.Data
 @using Archivyn.Models
 @using Microsoft.EntityFrameworkCore
@@ -8,280 +11,141 @@
 
 <PageTitle>Document Type Keywords</PageTitle>
 
-@if (CurrentDocumentType is null)
+<MudText class="mb-4" Typo="Typo.h5">@CurrentDocumentType.ItemTypeName #@CurrentDocumentType.ItemTypeNum</MudText>
+
+@if (!string.IsNullOrWhiteSpace(StatusMessage))
 {
-    <div class="alert alert-danger">
-        @StatusMessage
-    </div>
+    <MudText class="mb-4" Typo="Typo.h6" Color="Color.Secondary">@StatusMessage</MudText>
 }
-else
-{
-    <div class="mb-4">
-        <h1>Document Type Keywords</h1>
 
-        <div class="text-muted">
-            Document Type:
-            <strong>@CurrentDocumentType.ItemTypeName</strong>
-        </div>
+<MudText class="mb-4" Typo="Typo.h6">Keyword Types</MudText>
+<MudGrid>
+    <MudItem xs="6">
+        <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge">
+            <MudPaper Height="400px" Width="100%">
+                <MudTable Items="AvailableKeywords" Height="350px" Virtualize="true" FixedHeader="true">
+                    <HeaderContent>
+                        <MudTh>ID</MudTh>
+                        <MudTh>Name</MudTh>
+                        <MudTh>Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="ID">@context.KeyTypeNum</MudTd>
+                        <MudTd DataLabel="Name">@context.KeyTypeName</MudTd>
+                        <MudTd DataLabel="Actions">
+                            <MudButton Class="mx-2" Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       disabled="@IsBusy"
+                                       @onclick="() => AddKeywordAsync(context.KeyTypeNum)">
+                                Add
+                            </MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudContainer>
+    </MudItem>
+    <MudItem xs="6">
+        <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge">
+            <MudPaper Height="400px" Width="100%">
+                <MudTable Items="DirectAssignments" Height="350px" Virtualize="true" FixedHeader="true">
+                    <HeaderContent>
+                        <MudTh>ID</MudTh>
+                        <MudTh>Name</MudTh>
+                        <MudTh>Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="ID">@context.KeyTypeNum</MudTd>
+                        <MudTd DataLabel="Name">@context.KeyType.KeyTypeName</MudTd>
+                        <MudTd DataLabel="Actions">
+                            <MudButton Class="mx-2" Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       disabled="@IsBusy"
+                                       @onclick="() => RemoveKeywordAsync(context.KeyTypeNum)">
+                                Remove
+                            </MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudContainer>
+    </MudItem>
+</MudGrid>
 
-        <div class="text-muted">
-            Document Type Group:
-            <strong>
-                @(CurrentDocumentType.ItemTypeGroup?.ItemTypeGroupName
-                    ?? "Unassigned")
-            </strong>
-        </div>
-    </div>
-
-    @if (!string.IsNullOrWhiteSpace(StatusMessage))
-    {
-        <div class="alert @StatusCssClass">
-            @StatusMessage
-        </div>
-    }
-
-    <div class="row g-4">
-
-        <div class="col-lg-6">
-            <div class="card p-3 h-100">
-                <h4>Individual Keyword Types</h4>
-
-                <p class="text-muted">
-                    Add individual Keyword Types directly to this Document Type.
-                </p>
-
-                @if (AvailableKeywords.Count == 0)
-                {
-                    <p class="text-muted mb-0">
-                        No additional individual Keyword Types are available.
-                    </p>
-                }
-                else
-                {
-                    <table class="table table-sm align-middle">
-                        <thead>
-                            <tr>
-                                <th>Keyword Type</th>
-                                <th class="text-end">Action</th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            @foreach (var keyword in AvailableKeywords)
-                            {
-                                <tr>
-                                    <td>@keyword.KeyTypeName</td>
-
-                                    <td class="text-end">
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-primary"
-                                                disabled="@IsBusy"
-                                                @onclick="() => AddKeywordAsync(
-                                                                                                keyword.KeyTypeNum)">
-Add
-</button>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                }
-            </div>
-        </div>
-
-        <div class="col-lg-6">
-            <div class="card p-3 h-100">
-                <h4>Keyword Type Groups</h4>
-
-                <p class="text-muted">
-                    Add an entire standard Keyword Type Group.
-                </p>
-
-                @if (GroupOptions.Count == 0)
-                {
-                    <p class="text-muted mb-0">
-                        No additional Keyword Type Groups are available.
-                    </p>
-                }
-                else
-                {
-                    <table class="table table-sm align-middle">
-                        <thead>
-                            <tr>
-                                <th>Group</th>
-                                <th>Status</th>
-                                <th class="text-end">Action</th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            @foreach (var option in GroupOptions)
-                            {
-                                <tr>
-                                    <td>
-                                        @option.Group.KeySetName
-                                    </td>
-
-                                    <td>
-                                        @if (option.IsEmpty)
-                                        {
-                                            <span class="text-warning">
-                                                Group has no keywords
-                                            </span>
-                                        }
-                                        else if (option.ConflictingKeywords.Count > 0)
-                                        {
-                                            <span class="text-danger">
-                                                Conflicts:
-                                                @string.Join(
-                                                    ", ",
-                                                    option.ConflictingKeywords)
-                                            </span>
-                                        }
-                                        else
-                                        {
-                                            <span class="text-success">
-                                                Available
-                                            </span>
-                                        }
-                                    </td>
-
-                                    <td class="text-end">
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-primary"
-                                                disabled="@(
-                                                IsBusy ||
-                                                option.IsEmpty ||
-                                                option.ConflictingKeywords.Count > 0)"
-                                                @onclick="() => AddGroupAsync(
-                                                                                                option.Group.KeySetTableNum)">
-Add
-</button>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                }
-            </div>
-        </div>
-
-    </div>
-
-    <div class="row g-4 mt-1">
-
-        <div class="col-lg-6">
-            <div class="card p-3 h-100">
-                <h4>Directly Assigned Keywords</h4>
-
-                @if (DirectAssignments.Count == 0)
-                {
-                    <p class="text-muted mb-0">
-                        No individual Keyword Types are assigned.
-                    </p>
-                }
-                else
-                {
-                    <table class="table table-sm align-middle">
-                        <thead>
-                            <tr>
-                                <th>Order</th>
-                                <th>Keyword Type</th>
-                                <th class="text-end">Action</th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            @foreach (var assignment in DirectAssignments)
-                            {
-                                <tr>
-                                    <td>@assignment.DisplayOrder</td>
-                                    <td>@assignment.KeyType.KeyTypeName</td>
-
-                                    <td class="text-end">
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-danger"
-                                                disabled="@IsBusy"
-                                                @onclick="() => RemoveKeywordAsync(
-                                                                                                assignment.KeyTypeNum)">
-Remove
-</button>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                }
-            </div>
-        </div>
-
-        <div class="col-lg-6">
-            <div class="card p-3 h-100">
-                <h4>Assigned Keyword Type Groups</h4>
-
-                @if (GroupAssignments.Count == 0)
-                {
-                    <p class="text-muted mb-0">
-                        No Keyword Type Groups are assigned.
-                    </p>
-                }
-                else
-                {
-                    @foreach (var assignment in GroupAssignments)
-                    {
-                        <div class="border rounded p-3 mb-3">
-                            <div class="d-flex justify-content-between">
-                                <strong>
-                                    @assignment.KeywordTypeGroup.KeySetName
-                                </strong>
-
-                                <button type="button"
-                                        class="btn btn-sm btn-outline-danger"
-                                        disabled="@IsBusy"
-                                        @onclick="() => RemoveGroupAsync(
-                                                                                assignment.KeySetTableNum)">
-Remove
-</button>
-                            </div>
-
-                            <div class="small text-muted mt-2">
-                                @string.Join(
-                                    ", ",
-                                    assignment.KeywordTypeGroup
-                                        .KeywordTypeMemberships
-                                        .OrderBy(membership =>
-                                            membership.DisplayOrder)
-                                        .Select(membership =>
-                                            membership.KeyType.KeyTypeName))
-                            </div>
-                        </div>
-                    }
-                }
-            </div>
-        </div>
-
-    </div>
-}
+<MudText class="mb-4" Typo="Typo.h6">Keyword Type Groups</MudText>
+<MudGrid>
+    <MudItem xs="6">
+        <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge">
+            <MudPaper Height="400px" Width="100%">
+                <MudTable Items="GroupOptions" Height="350px" Virtualize="true" FixedHeader="true">
+                    <HeaderContent>
+                        <MudTh>ID</MudTh>
+                        <MudTh>Name</MudTh>
+                        <MudTh>Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="ID">@context.Group.KeySetTableNum</MudTd>
+                        <MudTd DataLabel="Name">@context.Group.KeySetName</MudTd>
+                        <MudTd DataLabel="Actions">
+                            <MudButton Class="mx-2" Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       disabled="@(
+                                       IsBusy ||
+                                       @context.IsEmpty ||
+                                       @context.ConflictingKeywords.Count > 0)"
+                                       @onclick="() => AddGroupAsync(context.Group.KeySetTableNum)">
+                                Add
+                            </MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudContainer>
+    </MudItem>
+    <MudItem xs="6">
+        <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge">
+            <MudPaper Height="400px" Width="100%">
+                <MudTable Items="GroupAssignments" Height="350px" Virtualize="true" FixedHeader="true">
+                    <HeaderContent>
+                        <MudTh>ID</MudTh>
+                        <MudTh>Name</MudTh>
+                        <MudTh>Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="ID">@context.KeySetTableNum</MudTd>
+                        <MudTd DataLabel="Name">@context.KeywordTypeGroup.KeySetName</MudTd>
+                        <MudTd DataLabel="Actions">
+                            <MudButton Class="mx-2" Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       disabled="@IsBusy"
+                                       @onclick="() => RemoveGroupAsync(context.KeySetTableNum)">
+                                Remove
+                            </MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudContainer>
+    </MudItem>
+</MudGrid>
 
 @code {
     [Parameter]
     public long ItemTypeNum { get; set; }
 
-    private DocumentType? CurrentDocumentType;
+    private DocumentType CurrentDocumentType = new DocumentType();
 
-    private List<DocumentTypeKeyType> DirectAssignments = [];
+    private List<DocumentTypeKeyType> DirectAssignments = new List<DocumentTypeKeyType>();
 
-    private List<DocumentTypeKeywordTypeGroup> GroupAssignments = [];
+    private List<DocumentTypeKeywordTypeGroup> GroupAssignments = new List<DocumentTypeKeywordTypeGroup>();
 
-    private List<KeyType> AvailableKeywords = [];
+    private List<KeyType> AvailableKeywords = new List<KeyType>();
 
-    private List<GroupOption> GroupOptions = [];
+    private List<GroupOption> GroupOptions = new List<GroupOption>();
 
     private bool IsBusy;
 
     private string? StatusMessage;
-
-    private string StatusCssClass = "alert-success";
 
     protected override async Task OnParametersSetAsync()
     {
@@ -290,18 +154,20 @@ Remove
 
     private async Task LoadPageAsync()
     {
-        CurrentDocumentType = await Db.DocumentTypes
+        var documentType = await Db.DocumentTypes
             .AsNoTracking()
             .Include(documentType =>
                 documentType.ItemTypeGroup)
             .SingleOrDefaultAsync(documentType =>
                 documentType.ItemTypeNum == ItemTypeNum);
 
-        if (CurrentDocumentType is null)
+        if (documentType is null)
         {
             ShowError("The Document Type does not exist.");
             return;
         }
+
+        CurrentDocumentType = documentType;
 
         DirectAssignments = await Db.DocumentTypeKeyTypes
             .AsNoTracking()
@@ -409,7 +275,7 @@ Remove
 
     private async Task AddKeywordAsync(long keyTypeNum)
     {
-        ClearStatus();
+        StatusMessage = null;
 
         if (IsBusy)
         {
@@ -497,9 +363,6 @@ Remove
             Db.ChangeTracker.Clear();
 
             await LoadPageAsync();
-
-            ShowSuccess(
-                $"“{keyword.KeyTypeName}” was added.");
         }
         catch (DbUpdateException)
         {
@@ -523,7 +386,7 @@ Remove
 
     private async Task AddGroupAsync(long keySetTableNum)
     {
-        ClearStatus();
+        StatusMessage = null;
 
         if (IsBusy)
         {
@@ -653,9 +516,6 @@ Remove
             Db.ChangeTracker.Clear();
 
             await LoadPageAsync();
-
-            ShowSuccess(
-                $"Keyword Type Group “{group.KeySetName}” was added.");
         }
         catch (DbUpdateException)
         {
@@ -679,7 +539,7 @@ Remove
 
     private async Task RemoveKeywordAsync(long keyTypeNum)
     {
-        ClearStatus();
+        StatusMessage = null;
 
         var assignment =
             await Db.DocumentTypeKeyTypes
@@ -702,13 +562,11 @@ Remove
         Db.ChangeTracker.Clear();
 
         await LoadPageAsync();
-
-        ShowSuccess("The direct Keyword Type was removed.");
     }
 
     private async Task RemoveGroupAsync(long keySetTableNum)
     {
-        ClearStatus();
+        StatusMessage = null;
 
         var assignment =
             await Db.DocumentTypeKeywordTypeGroups
@@ -731,24 +589,10 @@ Remove
         Db.ChangeTracker.Clear();
 
         await LoadPageAsync();
-
-        ShowSuccess("The Keyword Type Group was removed.");
-    }
-
-    private void ClearStatus()
-    {
-        StatusMessage = null;
-    }
-
-    private void ShowSuccess(string message)
-    {
-        StatusCssClass = "alert-success";
-        StatusMessage = message;
     }
 
     private void ShowError(string message)
     {
-        StatusCssClass = "alert-danger";
         StatusMessage = message;
     }
 
@@ -758,6 +602,6 @@ Remove
 
         public bool IsEmpty { get; init; }
 
-        public List<string> ConflictingKeywords { get; init; } = [];
+        public List<string> ConflictingKeywords { get; init; } = new List<string>();
     }
 }

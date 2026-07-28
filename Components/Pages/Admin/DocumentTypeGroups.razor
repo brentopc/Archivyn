@@ -1,5 +1,8 @@
 ﻿@page "/admin/document-type-groups"
 
+@inherits LayoutComponentBase
+@using MudBlazor
+
 @using Archivyn.Data
 @using Archivyn.Models
 @using Microsoft.EntityFrameworkCore
@@ -10,101 +13,56 @@
 
 <PageTitle>Document Type Groups</PageTitle>
 
-<h1>Document Type Groups</h1>
+<MudText Typo="Typo.h5">Document Type Name</MudText>
+<MudTextField class="mb-4" @bind-Value="NewDocumentTypeGroupName" Label="" Variant="Variant.Outlined"></MudTextField>
 
-<p class="text-muted">
-    Create groups used to organize Document Types.
-</p>
+<MudButton class="mb-4"
+           Variant="Variant.Filled"
+           Color="Color.Primary"
+           disabled="@IsBusy"
+           @onclick="CreateGroupAsync">
+    @(IsBusy ? "Creating..." : "Create Document Type Group")
+</MudButton>
 
 @if (!string.IsNullOrWhiteSpace(StatusMessage))
 {
-    <div class="alert @StatusCssClass">
-        @StatusMessage
-    </div>
+    <MudText class="mb-4" Typo="Typo.h6" Color="Color.Secondary">@StatusMessage</MudText>
 }
 
-<div class="card p-3 mb-4">
-    <h5>Create Document Type Group</h5>
-
-    <div class="mb-3">
-        <label class="form-label"
-               for="document-type-group-name">
-            Group Name
-        </label>
-
-        <input id="document-type-group-name"
-               class="form-control"
-               maxlength="66"
-               placeholder="Example: Accounts Payable"
-               @bind="NewGroupName" />
-    </div>
-
-    <button type="button"
-            class="btn btn-primary"
-            disabled="@IsBusy"
-            @onclick="CreateGroupAsync">
-        @(IsBusy ? "Creating..." : "Create Document Type Group")
-    </button>
-</div>
-
-<div class="card p-3">
-    <h5>Existing Document Type Groups</h5>
-
-    @if (GroupList.Count == 0)
-    {
-        <p class="text-muted mb-0">
-            No Document Type Groups have been created.
-        </p>
-    }
-    else
-    {
-        <div class="table-responsive">
-            <table class="table table-striped align-middle">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Group Name</th>
-                        <th>Document Types</th>
-                        <th class="text-end">Actions</th>
-                    </tr>
-                </thead>
-
-                <tbody>
-                    @foreach (var group in GroupList)
-                    {
-                        <tr>
-                            <td>@group.ItemTypeGroupNum</td>
-
-                            <td>@group.ItemTypeGroupName</td>
-
-                            <td>@group.DocumentTypes.Count</td>
-
-                            <td class="text-end">
-                                <button type="button"
-                                        class="btn btn-sm btn-outline-danger"
-                                        disabled="@IsBusy"
-                                        @onclick="() => DeleteGroupAsync(group.ItemTypeGroupNum)">
-                                    @(IsBusy ? "Deleting..." : "Delete")
-                                </button>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    }
-</div>
+<MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge">
+    <MudPaper Height="400px" Width="100%">
+        <MudTable Items="DocumentTypeGroupList" Height="350px" Virtualize="true" FixedHeader="true">
+            <HeaderContent>
+                <MudTh>ID</MudTh>
+                <MudTh>Name</MudTh>
+                <MudTh>Document Types</MudTh>
+                <MudTh>Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="ID">@context.ItemTypeGroupNum</MudTd>
+                <MudTd DataLabel="Name">@context.ItemTypeGroupName</MudTd>
+                <MudTd DataLabel="Document Types">@context.DocumentTypes.Count</MudTd>
+                <MudTd DataLabel="Actions">  
+                    <MudButton Class="mx-2" Variant="Variant.Filled"
+                               Color="Color.Secondary"
+                               disabled="@IsBusy"
+                               @onclick="() => DeleteGroupAsync(context.ItemTypeGroupNum)">
+                        @(IsBusy ? "Deleting..." : "Delete")
+                    </MudButton>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
+</MudContainer>
 
 @code {
-    private List<ItemTypeGroup> GroupList = [];
+    private List<ItemTypeGroup> DocumentTypeGroupList = [];
 
-    private string NewGroupName = string.Empty;
+    private string NewDocumentTypeGroupName = string.Empty;
 
     private bool IsBusy;
 
     private string? StatusMessage;
-
-    private string StatusCssClass = "alert-success";
 
     protected override async Task OnInitializedAsync()
     {
@@ -113,7 +71,7 @@
 
     private async Task LoadGroupsAsync()
     {
-        GroupList = await Db.ItemTypeGroups
+        DocumentTypeGroupList = await Db.ItemTypeGroups
             .AsNoTracking()
             .Include(group => group.DocumentTypes)
             .OrderBy(group => group.ItemTypeGroupName)
@@ -122,14 +80,14 @@
 
     private async Task CreateGroupAsync()
     {
-        ClearStatus();
+        StatusMessage = null;
 
         if (IsBusy)
         {
             return;
         }
 
-        var name = NewGroupName.Trim();
+        var name = NewDocumentTypeGroupName.Trim();
 
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -177,14 +135,11 @@
 
             await Db.SaveChangesAsync();
 
-            NewGroupName = string.Empty;
+            NewDocumentTypeGroupName = string.Empty;
 
             Db.ChangeTracker.Clear();
 
             await LoadGroupsAsync();
-
-            ShowSuccess(
-                $"Document Type Group “{name}” was created.");
         }
         catch (DbUpdateException)
         {
@@ -209,7 +164,7 @@
     private async Task DeleteGroupAsync(
         long itemTypeGroupNum)
     {
-        ClearStatus();
+        StatusMessage = null;
 
         if (IsBusy)
         {
@@ -276,9 +231,6 @@
             Db.ChangeTracker.Clear();
 
             await LoadGroupsAsync();
-
-            ShowSuccess(
-                $"Document Type Group “{group.ItemTypeGroupName}” was deleted.");
         }
         catch (Exception ex)
         {
@@ -293,20 +245,8 @@
         }
     }
 
-    private void ClearStatus()
-    {
-        StatusMessage = null;
-    }
-
-    private void ShowSuccess(string message)
-    {
-        StatusCssClass = "alert-success";
-        StatusMessage = message;
-    }
-
     private void ShowError(string message)
     {
-        StatusCssClass = "alert-danger";
         StatusMessage = message;
     }
 }

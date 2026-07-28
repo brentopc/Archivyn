@@ -32,7 +32,7 @@
     <MudText class="mb-4" Typo="Typo.h6" Color="Color.Secondary">@StatusMessage</MudText>
 }
 
-<MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge" Lef>
+<MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge">
     <MudPaper Height="400px" Width="100%">
         <MudTable Items="KeywordList" Height="350px" Virtualize="true" FixedHeader="true">
             <HeaderContent>
@@ -64,7 +64,6 @@
 
     private bool IsBusy;
     private string? StatusMessage;
-    private string StatusCssClass = "alert-success";
 
     protected override async Task OnInitializedAsync()
     {
@@ -132,9 +131,6 @@
             NewKeyword = new KeyType();
 
             await LoadKeywordsAsync();
-
-            StatusCssClass = "alert-success";
-            StatusMessage = $"Keyword type “{keyword.KeyTypeName}” was saved.";
         }
         catch (Exception ex)
         {
@@ -211,10 +207,6 @@
             Db.ChangeTracker.Clear();
 
             await LoadKeywordsAsync();
-
-            StatusCssClass = "alert-success";
-            StatusMessage =
-                $"Keyword Type “{keyword.KeyTypeName}” was deleted.";
         }
         catch (DbUpdateException)
         {
@@ -243,7 +235,6 @@
 
     private void ShowError(string message)
     {
-        StatusCssClass = "alert-danger";
         StatusMessage = message;
     }
 

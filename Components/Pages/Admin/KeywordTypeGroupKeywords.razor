@@ -1,0 +1,299 @@
+﻿@page "/admin/keyword-type-groups/{KeySetTableNum:long}/keywords"
+
+@inherits LayoutComponentBase
+@using MudBlazor
+
+@using Archivyn.Data
+@using Archivyn.Models
+@using Microsoft.EntityFrameworkCore
+
+@inject ArchivynDbContext Db
+
+<PageTitle>Keyword Type Group Keywords</PageTitle>
+
+<MudText class="mb-4" Typo="Typo.h5">@SelectedGroup.KeySetName #@SelectedGroup.KeySetTableNum</MudText>
+
+<MudGrid>
+    <MudItem xs="6">
+        <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge">
+            <MudPaper Height="400px" Width="100%">
+                <MudTable Items="AvailableKeywords" Height="350px" Virtualize="true" FixedHeader="true">
+                    <HeaderContent>
+                        <MudTh>ID</MudTh>
+                        <MudTh>Name</MudTh>
+                        <MudTh>Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="ID">@context.KeyTypeNum</MudTd>
+                        <MudTd DataLabel="Name">@context.KeyTypeName</MudTd>
+                        <MudTd DataLabel="Actions">
+                            <MudButton Class="mx-2" Variant="Variant.Filled"
+                                        Color="Color.Primary"
+                                        disabled="@IsBusy"
+                                        @onclick="() => AddKeywordAsync(context.KeyTypeNum)">
+                                Add
+                            </MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudContainer>
+    </MudItem>
+    <MudItem xs="6">
+        <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge">
+            <MudPaper Height="400px" Width="100%">
+                <MudTable Items="AssignedMemberships" Height="350px" Virtualize="true" FixedHeader="true">
+                    <HeaderContent>
+                        <MudTh>ID</MudTh>
+                        <MudTh>Name</MudTh>
+                        <MudTh>Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="ID">@context.KeyTypeNum</MudTd>
+                        <MudTd DataLabel="Name">@context.KeyType.KeyTypeName</MudTd>
+                        <MudTd DataLabel="Actions">
+                            <MudButton Class="mx-2" Variant="Variant.Filled"
+                                        Color="Color.Primary"
+                                        disabled="@IsBusy"
+                                        @onclick="() => RemoveKeywordAsync(context.KeyTypeNum)">
+                                Remove
+                            </MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudContainer>
+    </MudItem>
+</MudGrid>
+
+@code {
+    [Parameter]
+    public long KeySetTableNum { get; set; }
+    private KeywordSet SelectedGroup = new KeywordSet();
+
+    private List<KeyType> AvailableKeywords = [];
+    private List<KeywordSetKeyType> AssignedMemberships = [];    
+
+    private bool IsBusy;
+    private string? StatusMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadPageAsync();
+    }
+
+    private async Task LoadPageAsync()
+    {
+        await SelectGroupAsync(KeySetTableNum);
+    }
+
+    private async Task SelectGroupAsync(long groupNumber)
+    {
+        StatusMessage = null;
+
+        var keywordTypeGroup = await Db.KeywordSets
+            .AsNoTracking()
+            .SingleOrDefaultAsync(group =>
+                group.KeySetTableNum == groupNumber &&
+                group.IsKeyTypeGroup == 1);
+
+        if (keywordTypeGroup is null)
+        {
+            AvailableKeywords = [];
+            AssignedMemberships = [];
+
+            ShowError(
+                "The selected Keyword Type Group no longer exists.");
+
+            return;
+        }
+
+        SelectedGroup = keywordTypeGroup;
+
+        await LoadMembershipAsync();
+    }
+
+    private async Task LoadMembershipAsync()
+    {
+        AvailableKeywords = [];
+        AssignedMemberships = [];
+
+        var groupNumber = KeySetTableNum;
+
+        AssignedMemberships = await Db.KeywordSetKeyTypes
+            .AsNoTracking()
+            .Include(membership => membership.KeyType)
+            .Where(membership =>
+                membership.KeySetTableNum == groupNumber)
+            .OrderBy(membership =>
+                membership.DisplayOrder)
+            .ThenBy(membership =>
+                membership.KeyType.KeyTypeName)
+            .ToListAsync();
+
+        AvailableKeywords = await Db.KeyTypes
+            .AsNoTracking()
+            .Where(keyword =>
+                !Db.KeywordSetKeyTypes.Any(membership =>
+                    membership.KeySetTableNum == groupNumber &&
+                    membership.KeyTypeNum == keyword.KeyTypeNum))
+            .OrderBy(keyword =>
+                keyword.KeyTypeName)
+            .ToListAsync();
+    }
+
+    private async Task AddKeywordAsync(
+        long keyTypeNumber)
+    {
+        StatusMessage = null;
+
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+
+        try
+        {
+            var groupNumber = KeySetTableNum;
+
+            var keyword = await Db.KeyTypes
+                .AsNoTracking()
+                .SingleOrDefaultAsync(item =>
+                    item.KeyTypeNum == keyTypeNumber);
+
+            if (keyword is null)
+            {
+                ShowError(
+                    "The Keyword Type no longer exists.");
+
+                return;
+            }
+
+            var alreadyAssigned =
+                await Db.KeywordSetKeyTypes
+                    .AsNoTracking()
+                    .AnyAsync(membership =>
+                        membership.KeySetTableNum == groupNumber &&
+                        membership.KeyTypeNum == keyTypeNumber);
+
+            if (alreadyAssigned)
+            {
+                ShowError(
+                    $"“{keyword.KeyTypeName}” is already assigned to this group.");
+
+                return;
+            }
+
+            var highestDisplayOrder =
+                await Db.KeywordSetKeyTypes
+                    .Where(membership =>
+                        membership.KeySetTableNum == groupNumber)
+                    .MaxAsync(membership =>
+                        (int?)membership.DisplayOrder);
+
+            var membership =
+                new KeywordSetKeyType
+                {
+                    KeySetTableNum = groupNumber,
+                    KeyTypeNum = keyTypeNumber,
+                    DisplayOrder =
+                        (highestDisplayOrder ?? 0) + 1
+                };
+
+            Db.KeywordSetKeyTypes.Add(
+                membership);
+
+            await Db.SaveChangesAsync();
+
+            Db.ChangeTracker.Clear();
+
+            await LoadMembershipAsync();
+        }
+        catch (DbUpdateException)
+        {
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                "That Keyword Type is already assigned to this group.");
+        }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                $"The Keyword Type could not be added: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task RemoveKeywordAsync(
+        long keyTypeNumber)
+    {
+        StatusMessage = null;
+
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+
+        try
+        {
+            var groupNumber = KeySetTableNum;
+
+            var membership =
+                await Db.KeywordSetKeyTypes
+                    .SingleOrDefaultAsync(item =>
+                        item.KeySetTableNum == groupNumber &&
+                        item.KeyTypeNum == keyTypeNumber);
+
+            if (membership is null)
+            {
+                ShowError(
+                    "That Keyword Type is not assigned to this group.");
+
+                return;
+            }
+
+            var keywordName =
+                await Db.KeyTypes
+                    .AsNoTracking()
+                    .Where(keyword =>
+                        keyword.KeyTypeNum == keyTypeNumber)
+                    .Select(keyword =>
+                        keyword.KeyTypeName)
+                    .SingleOrDefaultAsync();
+
+            Db.KeywordSetKeyTypes.Remove(
+                membership);
+
+            await Db.SaveChangesAsync();
+
+            Db.ChangeTracker.Clear();
+
+            await LoadMembershipAsync();
+        }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                $"The Keyword Type could not be removed: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void ShowError(string message)
+    {
+        StatusMessage = message;
+    }
+}
