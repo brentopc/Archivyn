@@ -7,8 +7,12 @@ COMPOSE_FILE="$INSTALL_DIR/compose.yaml"
 ENV_FILE="$INSTALL_DIR/.env"
 DATABASE_VOLUME="archivyn_archivyn_postgres_data"
 
+# Allow prompts when executed with:
+# curl .../install.sh | sudo bash
+exec 3</dev/tty
+
 if [[ "$EUID" -ne 0 ]]; then
-    echo "Run this installer with sudo."
+    echo "Run the installer with sudo."
     exit 1
 fi
 
@@ -22,12 +26,12 @@ if ! docker compose version >/dev/null 2>&1; then
     exit 1
 fi
 
-# Allows prompts to work when running:
-# curl .../install.sh | sudo bash
-exec 3</dev/tty
-
 INSTALL_USER="${SUDO_USER:-root}"
 INSTALL_GROUP="$(id -gn "$INSTALL_USER")"
+
+echo
+echo "Archivyn Installer"
+echo
 
 install \
     -d \
@@ -36,24 +40,22 @@ install \
     -g "$INSTALL_GROUP" \
     "$INSTALL_DIR"
 
-echo
-echo "Archivyn Installer"
-echo
+# Refuse to create new credentials for an existing database.
+if [[ ! -f "$ENV_FILE" ]] &&
+   docker volume inspect "$DATABASE_VOLUME" >/dev/null 2>&1
+then
+    echo "Installation stopped."
+    echo
+    echo "An existing Archivyn database was found, but:"
+    echo "$ENV_FILE"
+    echo "is missing."
+    echo
+    echo "Restore the original .env file before continuing."
+    exit 1
+fi
 
+# Only ask questions during the first installation.
 if [[ ! -f "$ENV_FILE" ]]; then
-    # Do not generate new credentials for an existing database.
-    if docker volume inspect "$DATABASE_VOLUME" >/dev/null 2>&1; then
-        echo "Installation stopped."
-        echo
-        echo "An existing Archivyn database was found, but:"
-        echo "$ENV_FILE"
-        echo "is missing."
-        echo
-        echo "Restore the original .env file or remove the old"
-        echo "database volume before performing a fresh installation."
-        exit 1
-    fi
-
     while true; do
         read -r -u 3 -p \
             "Archivyn web port [7421]: " \
@@ -62,7 +64,8 @@ if [[ ! -f "$ENV_FILE" ]]; then
         ARCHIVYN_PORT="${ARCHIVYN_PORT:-7421}"
 
         if [[ "$ARCHIVYN_PORT" =~ ^[0-9]+$ ]] &&
-           (( ARCHIVYN_PORT >= 1 && ARCHIVYN_PORT <= 65535 )); then
+           (( ARCHIVYN_PORT >= 1 && ARCHIVYN_PORT <= 65535 ))
+        then
             break
         fi
 
@@ -97,41 +100,22 @@ if [[ ! -f "$ENV_FILE" ]]; then
         echo "Use lowercase letters, numbers, and underscores only."
     done
 
-    while true; do
-        read -r -s -u 3 -p \
-            "Database password: " \
-            POSTGRES_PASSWORD
-        echo
-
-        if [[ ${#POSTGRES_PASSWORD} -lt 12 ]]; then
-            echo "The password must contain at least 12 characters."
-            continue
-        fi
-
-        if [[ ! "$POSTGRES_PASSWORD" =~ ^[-A-Za-z0-9._@%+=:]+$ ]]; then
-            echo "Use letters, numbers, and these symbols:"
-            echo "- . _ @ % + = :"
-            continue
-        fi
-
-        read -r -s -u 3 -p \
-            "Confirm database password: " \
-            POSTGRES_PASSWORD_CONFIRM
-        echo
-
-        if [[ "$POSTGRES_PASSWORD" != "$POSTGRES_PASSWORD_CONFIRM" ]]; then
-            echo "The passwords did not match."
-            continue
-        fi
-
-        break
-    done
+    if command -v openssl >/dev/null 2>&1; then
+        POSTGRES_PASSWORD="$(openssl rand -hex 32)"
+    else
+        POSTGRES_PASSWORD="$(
+            head -c 32 /dev/urandom |
+            od -An -tx1 |
+            tr -d ' \n'
+        )"
+    fi
 
     umask 077
 
     cat > "$ENV_FILE" <<ENV
 ARCHIVYN_VERSION=latest
 ARCHIVYN_PORT=${ARCHIVYN_PORT}
+
 POSTGRES_DB=${POSTGRES_DB}
 POSTGRES_USER=${POSTGRES_USER}
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -141,13 +125,13 @@ ENV
     chmod 0600 "$ENV_FILE"
 
     unset POSTGRES_PASSWORD
-    unset POSTGRES_PASSWORD_CONFIRM
 
     echo
-    echo "Configuration created."
+    echo "Created a new database configuration."
+    echo "A secure database password was generated automatically."
 else
     echo "Existing configuration found."
-    echo "The existing database settings will be preserved."
+    echo "The current database settings will be preserved."
 fi
 
 cat > "$COMPOSE_FILE" <<'COMPOSE'
@@ -232,22 +216,22 @@ docker compose \
 
 echo "Checking Archivyn..."
 
-sleep 5
+sleep 8
 
-if [[ "$(docker inspect -f '{{.State.Running}}' archivyn 2>/dev/null)" != "true" ]]; then
+if [[ "$(docker inspect -f '{{.State.Running}}' archivyn 2>/dev/null || true)" != "true" ]]; then
     echo
     echo "Archivyn failed to start:"
     docker logs --tail=100 archivyn || true
     exit 1
 fi
 
-echo
 docker compose \
     --env-file "$ENV_FILE" \
     -f "$COMPOSE_FILE" \
     ps
 
 SERVER_IP="$(hostname -I | awk '{print $1}')"
+
 ARCHIVYN_PORT="$(
     grep '^ARCHIVYN_PORT=' "$ENV_FILE" |
     cut -d= -f2-
@@ -256,4 +240,4 @@ ARCHIVYN_PORT="$(
 echo
 echo "Archivyn installation complete."
 echo "Open: http://${SERVER_IP}:${ARCHIVYN_PORT}"
-echo "Configuration: $INSTALL_DIR"
+echo "Configuration files: $INSTALL_DIR"
