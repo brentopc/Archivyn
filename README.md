@@ -1,0 +1,1 @@
+curl -fsSL https://raw.githubusercontent.com/brentopc/archivyn-install/main/install.sh | sudo bash

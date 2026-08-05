@@ -1,8 +1,6 @@
 services:
   archivyn:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/brentioc/archivyn:${ARCHIVYN_VERSION:-latest}
     container_name: archivyn
     restart: unless-stopped
 
