@@ -329,8 +329,8 @@ public class ArchivynDbContext : DbContext
                 KeyTypeName = "Description",
                 DataType = KeyType.DataTypes.Text,
                 KeyTypeLen = 250L,
-                IsSystem = false,
-                AddToAllDocumentTypes = true,
+                IsSystem = true,
+                AddToAllDocumentTypes = false,
                 IsRequiredOnAllDocumentTypes = false,
                 AllDocumentTypesDisplayOrder = 2
             });
