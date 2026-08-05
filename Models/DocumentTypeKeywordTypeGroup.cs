@@ -1,7 +1,9 @@
 ﻿namespace Archivyn.Models;
 
-public sealed class DocumentTypeKeywordTypeGroup
+public sealed class DocumentTypeKeywordTypeGroup : ISystemManagedEntity
 {
+    public bool IsSystem { get; private set; }
+    
     public long ItemTypeNum { get; set; }
 
     public long KeySetTableNum { get; set; }

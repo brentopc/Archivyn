@@ -9,19 +9,19 @@
 
 @inject ArchivynDbContext Db
 
-<PageTitle>Document Type Keywords</PageTitle>
+<MudText Typo="Typo.h2" class="mb-4">Document Type Keywords</MudText>
 
-<MudText class="mb-4" Typo="Typo.h5">@CurrentDocumentType.ItemTypeName #@CurrentDocumentType.ItemTypeNum</MudText>
+<MudText class="mb-4" Typo="Typo.h4">@CurrentDocumentType.ItemTypeName #@CurrentDocumentType.ItemTypeNum</MudText>
 
 @if (!string.IsNullOrWhiteSpace(StatusMessage))
 {
-    <MudText class="mb-4" Typo="Typo.h6" Color="Color.Secondary">@StatusMessage</MudText>
+    <MudText class="mb-4" Typo="Typo.h6" Color="Color.Warning">@StatusMessage</MudText>
 }
 
 <MudText class="mb-4" Typo="Typo.h6">Keyword Types</MudText>
 <MudGrid>
     <MudItem xs="6">
-        <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge">
+        <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraExtraLarge">
             <MudPaper Height="400px" Width="100%">
                 <MudTable Items="AvailableKeywords" Height="350px" Virtualize="true" FixedHeader="true">
                     <HeaderContent>
@@ -46,9 +46,9 @@
         </MudContainer>
     </MudItem>
     <MudItem xs="6">
-        <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge">
+        <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraExtraLarge">
             <MudPaper Height="400px" Width="100%">
-                <MudTable Items="DirectAssignments" Height="350px" Virtualize="true" FixedHeader="true">
+                <MudTable T="DocumentTypeKeyType" Items="DirectAssignments" Height="350px" Virtualize="true" FixedHeader="true">
                     <HeaderContent>
                         <MudTh>ID</MudTh>
                         <MudTh>Name</MudTh>
@@ -60,7 +60,9 @@
                         <MudTd DataLabel="Actions">
                             <MudButton Class="mx-2" Variant="Variant.Filled"
                                        Color="Color.Primary"
-                                       disabled="@IsBusy"
+                                       disabled="@(
+                                       IsBusy ||
+                                       @context.KeyType.IsSystem)"
                                        @onclick="() => RemoveKeywordAsync(context.KeyTypeNum)">
                                 Remove
                             </MudButton>
@@ -75,9 +77,9 @@
 <MudText class="mb-4" Typo="Typo.h6">Keyword Type Groups</MudText>
 <MudGrid>
     <MudItem xs="6">
-        <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge">
+        <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraExtraLarge">
             <MudPaper Height="400px" Width="100%">
-                <MudTable Items="GroupOptions" Height="350px" Virtualize="true" FixedHeader="true">
+                <MudTable T="GroupOption" Items="GroupOptions" Height="350px" Virtualize="true" FixedHeader="true">
                     <HeaderContent>
                         <MudTh>ID</MudTh>
                         <MudTh>Name</MudTh>
@@ -103,9 +105,9 @@
         </MudContainer>
     </MudItem>
     <MudItem xs="6">
-        <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge">
+        <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraExtraLarge">
             <MudPaper Height="400px" Width="100%">
-                <MudTable Items="GroupAssignments" Height="350px" Virtualize="true" FixedHeader="true">
+                <MudTable T="DocumentTypeKeywordTypeGroup" Items="GroupAssignments" Height="350px" Virtualize="true" FixedHeader="true">
                     <HeaderContent>
                         <MudTh>ID</MudTh>
                         <MudTh>Name</MudTh>
@@ -117,7 +119,9 @@
                         <MudTd DataLabel="Actions">
                             <MudButton Class="mx-2" Variant="Variant.Filled"
                                        Color="Color.Primary"
-                                       disabled="@IsBusy"
+                                       disabled="@(
+                                       IsBusy ||
+                                       @context.KeywordTypeGroup.IsSystem)"
                                        @onclick="() => RemoveGroupAsync(context.KeySetTableNum)">
                                 Remove
                             </MudButton>
@@ -154,102 +158,115 @@
 
     private async Task LoadPageAsync()
     {
-        var documentType = await Db.DocumentTypes
-            .AsNoTracking()
-            .Include(documentType =>
-                documentType.ItemTypeGroup)
-            .SingleOrDefaultAsync(documentType =>
-                documentType.ItemTypeNum == ItemTypeNum);
-
-        if (documentType is null)
+        try
         {
-            ShowError("The Document Type does not exist.");
-            return;
-        }
-
-        CurrentDocumentType = documentType;
-
-        DirectAssignments = await Db.DocumentTypeKeyTypes
-            .AsNoTracking()
-            .Include(assignment => assignment.KeyType)
-            .Where(assignment =>
-                assignment.ItemTypeNum == ItemTypeNum)
-            .OrderBy(assignment =>
-                assignment.DisplayOrder)
-            .ThenBy(assignment =>
-                assignment.KeyType.KeyTypeName)
-            .ToListAsync();
-
-        GroupAssignments =
-            await Db.DocumentTypeKeywordTypeGroups
+            var documentType = await Db.DocumentTypes
                 .AsNoTracking()
-                .Include(assignment =>
-                    assignment.KeywordTypeGroup)
-                .ThenInclude(group =>
-                    group.KeywordTypeMemberships)
-                .ThenInclude(membership =>
-                    membership.KeyType)
+                .Include(documentType =>
+                    documentType.ItemTypeGroup)
+                .SingleOrDefaultAsync(documentType =>
+                    documentType.ItemTypeNum == ItemTypeNum);
+
+            if (documentType is null)
+            {
+                throw new("The Document Type does not exist.");
+            }
+
+            CurrentDocumentType = documentType;
+
+            DirectAssignments = await Db.DocumentTypeKeyTypes
+                .AsNoTracking()
+                .Include(assignment => assignment.KeyType)
                 .Where(assignment =>
                     assignment.ItemTypeNum == ItemTypeNum)
                 .OrderBy(assignment =>
                     assignment.DisplayOrder)
                 .ThenBy(assignment =>
-                    assignment.KeywordTypeGroup.KeySetName)
+                    assignment.KeyType.KeyTypeName)
                 .ToListAsync();
 
-        var effectiveKeywordNumbers =
-            GetEffectiveKeywordNumbers();
+            GroupAssignments =
+                await Db.DocumentTypeKeywordTypeGroups
+                    .AsNoTracking()
+                    .Include(assignment =>
+                        assignment.KeywordTypeGroup)
+                    .ThenInclude(group =>
+                        group.KeywordTypeMemberships)
+                    .ThenInclude(membership =>
+                        membership.KeyType)
+                    .Where(assignment =>
+                        assignment.ItemTypeNum == ItemTypeNum)
+                    .OrderBy(assignment =>
+                        assignment.DisplayOrder)
+                    .ThenBy(assignment =>
+                        assignment.KeywordTypeGroup.KeySetName)
+                    .ToListAsync();
 
-        AvailableKeywords = await Db.KeyTypes
-            .AsNoTracking()
-            .Where(keyword =>
-                !effectiveKeywordNumbers.Contains(
-                    keyword.KeyTypeNum))
-            .OrderBy(keyword =>
-                keyword.KeyTypeName)
-            .ToListAsync();
+            var effectiveKeywordNumbers =
+                GetEffectiveKeywordNumbers();
 
-        var assignedGroupNumbers = GroupAssignments
-            .Select(assignment =>
-                assignment.KeySetTableNum)
-            .ToHashSet();
+            AvailableKeywords = await Db.KeyTypes
+                .AsNoTracking()
+                .Where(keyword =>
+                    !effectiveKeywordNumbers.Contains(
+                        keyword.KeyTypeNum))
+                .OrderBy(keyword =>
+                    keyword.KeyTypeName)
+                .ToListAsync();
 
-        var unassignedGroups = await Db.KeywordSets
-            .AsNoTracking()
-            .Where(group =>
-                group.IsKeyTypeGroup == 1 &&
-                !assignedGroupNumbers.Contains(
-                    group.KeySetTableNum))
-            .Include(group =>
-                group.KeywordTypeMemberships)
-            .ThenInclude(membership =>
-                membership.KeyType)
-            .OrderBy(group =>
-                group.KeySetName)
-            .ToListAsync();
+            var assignedGroupNumbers = GroupAssignments
+                .Select(assignment =>
+                    assignment.KeySetTableNum)
+                .ToHashSet();
 
-        GroupOptions = unassignedGroups
-            .Select(group =>
-            {
-                var conflicts = group.KeywordTypeMemberships
-                    .Where(membership =>
-                        effectiveKeywordNumbers.Contains(
-                            membership.KeyTypeNum))
-                    .Select(membership =>
-                        membership.KeyType.KeyTypeName)
-                    .Distinct()
-                    .OrderBy(name => name)
-                    .ToList();
+            var unassignedGroups = await Db.KeywordSets
+                .AsNoTracking()
+                .Where(group =>
+                    group.IsKeyTypeGroup == 1 &&
+                    !assignedGroupNumbers.Contains(
+                        group.KeySetTableNum))
+                .Include(group =>
+                    group.KeywordTypeMemberships)
+                .ThenInclude(membership =>
+                    membership.KeyType)
+                .OrderBy(group =>
+                    group.KeySetName)
+                .ToListAsync();
 
-                return new GroupOption
+            GroupOptions = unassignedGroups
+                .Select(group =>
                 {
-                    Group = group,
-                    IsEmpty =
-                        group.KeywordTypeMemberships.Count == 0,
-                    ConflictingKeywords = conflicts
-                };
-            })
-            .ToList();
+                    var conflicts = group.KeywordTypeMemberships
+                        .Where(membership =>
+                            effectiveKeywordNumbers.Contains(
+                                membership.KeyTypeNum))
+                        .Select(membership =>
+                            membership.KeyType.KeyTypeName)
+                        .Distinct()
+                        .OrderBy(name => name)
+                        .ToList();
+
+                    return new GroupOption
+                        {
+                            Group = group,
+                            IsEmpty =
+                                group.KeywordTypeMemberships.Count == 0,
+                            ConflictingKeywords = conflicts
+                        };
+                })
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            ShowError(
+                $"The Keyword Type Group could not be added: {ex.Message}");
+        }
+        finally
+        {
+            Db.ChangeTracker.Clear();
+
+            IsBusy = false;
+        }
     }
 
     private HashSet<long> GetEffectiveKeywordNumbers()
@@ -281,7 +298,6 @@
         {
             return;
         }
-
         IsBusy = true;
 
         try
@@ -293,8 +309,7 @@
 
             if (keyword is null)
             {
-                ShowError("The Keyword Type no longer exists.");
-                return;
+                throw new("The Keyword Type no longer exists.");
             }
 
             var directlyAssigned =
@@ -306,10 +321,7 @@
 
             if (directlyAssigned)
             {
-                ShowError(
-                    $"“{keyword.KeyTypeName}” is already directly assigned.");
-
-                return;
+                throw new($"“{keyword.KeyTypeName}” is already directly assigned.");
             }
 
             var assignedGroupNumbers =
@@ -335,12 +347,10 @@
 
             if (blockingGroups.Count > 0)
             {
-                ShowError(
+                throw new(
                     $"“{keyword.KeyTypeName}” cannot be added directly " +
                     $"because it is already supplied by: " +
                     $"{string.Join(", ", blockingGroups)}.");
-
-                return;
             }
 
             var maximumOrder = await Db.DocumentTypeKeyTypes
@@ -358,28 +368,19 @@
                         (maximumOrder ?? 0) + 1
                 });
 
-            await Db.SaveChangesAsync();
-
-            Db.ChangeTracker.Clear();
-
-            await LoadPageAsync();
-        }
-        catch (DbUpdateException)
-        {
-            Db.ChangeTracker.Clear();
-
-            ShowError(
-                "The Keyword Type could not be added because it is already assigned.");
+            await Db.SaveChangesAsync();            
         }
         catch (Exception ex)
         {
-            Db.ChangeTracker.Clear();
-
             ShowError(
                 $"The Keyword Type could not be added: {ex.Message}");
         }
         finally
         {
+            Db.ChangeTracker.Clear();
+
+            await LoadPageAsync();
+
             IsBusy = false;
         }
     }
@@ -392,7 +393,6 @@
         {
             return;
         }
-
         IsBusy = true;
 
         try
@@ -410,18 +410,14 @@
 
             if (group is null)
             {
-                ShowError(
+                throw new(
                     "The standard Keyword Type Group no longer exists.");
-
-                return;
             }
 
             if (group.KeywordTypeMemberships.Count == 0)
             {
-                ShowError(
+                throw new(
                     $"“{group.KeySetName}” contains no Keyword Types.");
-
-                return;
             }
 
             var alreadyAssigned =
@@ -433,10 +429,8 @@
 
             if (alreadyAssigned)
             {
-                ShowError(
+                throw new(
                     $"“{group.KeySetName}” is already assigned.");
-
-                return;
             }
 
             var directKeywordNumbers =
@@ -486,13 +480,11 @@
 
             if (conflictingKeywords.Count > 0)
             {
-                ShowError(
+                throw new(
                     $"“{group.KeySetName}” cannot be added because " +
                     $"the following Keyword Type(s) are already on " +
                     $"the Document Type: " +
                     $"{string.Join(", ", conflictingKeywords)}.");
-
-                return;
             }
 
             var maximumOrder =
@@ -511,28 +503,19 @@
                         (maximumOrder ?? 0) + 1
                 });
 
-            await Db.SaveChangesAsync();
-
-            Db.ChangeTracker.Clear();
-
-            await LoadPageAsync();
-        }
-        catch (DbUpdateException)
-        {
-            Db.ChangeTracker.Clear();
-
-            ShowError(
-                "The Keyword Type Group could not be added.");
+            await Db.SaveChangesAsync();            
         }
         catch (Exception ex)
         {
-            Db.ChangeTracker.Clear();
-
             ShowError(
                 $"The Keyword Type Group could not be added: {ex.Message}");
         }
         finally
         {
+            Db.ChangeTracker.Clear();
+
+            await LoadPageAsync();
+
             IsBusy = false;
         }
     }
@@ -541,54 +524,85 @@
     {
         StatusMessage = null;
 
-        var assignment =
-            await Db.DocumentTypeKeyTypes
-                .SingleOrDefaultAsync(item =>
-                    item.ItemTypeNum == ItemTypeNum &&
-                    item.KeyTypeNum == keyTypeNum);
-
-        if (assignment is null)
+        if (IsBusy)
         {
-            ShowError(
-                "The direct Keyword Type assignment no longer exists.");
-
             return;
         }
+        IsBusy = true;
 
-        Db.DocumentTypeKeyTypes.Remove(assignment);
+        try
+        {
+            var assignment =
+                await Db.DocumentTypeKeyTypes
+                    .SingleOrDefaultAsync(item =>
+                        item.ItemTypeNum == ItemTypeNum &&
+                        item.KeyTypeNum == keyTypeNum);
 
-        await Db.SaveChangesAsync();
+            if (assignment is null)
+            {
+                throw new(
+                    "The direct Keyword Type assignment no longer exists.");
+            }
 
-        Db.ChangeTracker.Clear();
+            Db.DocumentTypeKeyTypes.Remove(assignment);
 
-        await LoadPageAsync();
+            await Db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowError(
+                $"The Keyword Type Group could not be added: {ex.Message}");
+        }
+        finally
+        {
+            Db.ChangeTracker.Clear();
+
+            await LoadPageAsync();
+
+            IsBusy = false;
+        }
     }
 
     private async Task RemoveGroupAsync(long keySetTableNum)
     {
         StatusMessage = null;
 
-        var assignment =
-            await Db.DocumentTypeKeywordTypeGroups
-                .SingleOrDefaultAsync(item =>
-                    item.ItemTypeNum == ItemTypeNum &&
-                    item.KeySetTableNum == keySetTableNum);
-
-        if (assignment is null)
+        if (IsBusy)
         {
-            ShowError(
-                "The Keyword Type Group assignment no longer exists.");
-
             return;
         }
+        IsBusy = true;
 
-        Db.DocumentTypeKeywordTypeGroups.Remove(assignment);
+        try
+        {
+            var assignment =
+                await Db.DocumentTypeKeywordTypeGroups
+                    .SingleOrDefaultAsync(item =>
+                        item.ItemTypeNum == ItemTypeNum &&
+                        item.KeySetTableNum == keySetTableNum);
 
-        await Db.SaveChangesAsync();
+            if (assignment is null)
+            {
+                throw new("The Keyword Type Group assignment no longer exists.");
+            }
 
-        Db.ChangeTracker.Clear();
+            Db.DocumentTypeKeywordTypeGroups.Remove(assignment);
 
-        await LoadPageAsync();
+            await Db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowError(
+                $"The Keyword Type Group could not be added: {ex.Message}");
+        }
+        finally
+        {
+            Db.ChangeTracker.Clear();
+
+            await LoadPageAsync();
+
+            IsBusy = false;
+        }
     }
 
     private void ShowError(string message)

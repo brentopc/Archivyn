@@ -10,29 +10,11 @@
 
 @inject ArchivynDbContext Db
 @inject IJSRuntime JS
+@inject NavigationManager Navigation
 
-<PageTitle>Keyword Types</PageTitle>
+<MudText Typo="Typo.h2" class="mb-4">Keyword Types</MudText>
 
-<MudText Typo="Typo.h5">Keyword Name</MudText>
-<MudTextField class="mb-4" @bind-Value="NewKeyword.KeyTypeName" Label="" Variant="Variant.Outlined"></MudTextField>
-
-<MudText Typo="Typo.h5">Length</MudText>
-<MudTextField class="mb-4" type="number" @bind-Value="NewKeyword.KeyTypeLen" Label="" Variant="Variant.Outlined"></MudTextField>
-
-<MudButton class="mb-4"
-    Variant="Variant.Filled"
-    Color="Color.Primary"
-    disabled="@IsBusy"
-    @onclick="CreateKeywordAsync">
-    @(IsBusy ? "Creating..." : "Create Keyword")
-</MudButton>
-
-@if (!string.IsNullOrWhiteSpace(StatusMessage))
-{
-    <MudText class="mb-4" Typo="Typo.h6" Color="Color.Secondary">@StatusMessage</MudText>
-}
-
-<MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge">
+<MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraExtraLarge">
     <MudPaper Height="400px" Width="100%">
         <MudTable Items="KeywordList" Height="350px" Virtualize="true" FixedHeader="true">
             <HeaderContent>
@@ -47,9 +29,19 @@
                 <MudTd DataLabel="Length">@context.KeyTypeLen</MudTd>
                 <MudTd DataLabel="Actions">
                     <MudButton Class="mx-2" Variant="Variant.Filled"
-                                Color="Color.Secondary"
-                                disabled="@IsBusy"
-                                @onclick="() => DeleteKeywordAsync(context)">
+                               Color="Color.Primary"
+                               disabled="@(
+                               IsBusy ||
+                               @context.IsSystem)"
+                               href="@($"/admin/keyword-types/{context.KeyTypeNum}/properties")">
+                        Edit
+                    </MudButton>
+                    <MudButton Class="mx-2" Variant="Variant.Filled"
+                               Color="Color.Secondary"
+                               disabled="@(
+                               IsBusy ||
+                               @context.IsSystem)"
+                               @onclick="() => DeleteKeywordAsync(context)">
                         @(IsBusy ? "Deleting..." : "Delete")
                     </MudButton>
                 </MudTd>
@@ -57,6 +49,25 @@
         </MudTable>
     </MudPaper>
 </MudContainer>
+
+<MudText Typo="Typo.h5">Keyword Name</MudText>
+<MudTextField class="mb-4" @bind-Value="NewKeyword.KeyTypeName" Label="" Variant="Variant.Outlined"></MudTextField>
+
+<MudText Typo="Typo.h5">Length</MudText>
+<MudTextField class="mb-4" type="number" @bind-Value="NewKeyword.KeyTypeLen" Label="" Variant="Variant.Outlined"></MudTextField>
+
+<MudButton Class="mx-2"
+    Variant="Variant.Filled"
+    Color="Color.Primary"
+    disabled="@IsBusy"
+    @onclick="CreateKeywordAsync">
+    @(IsBusy ? "Creating..." : "Create Keyword")
+</MudButton>
+
+@if (!string.IsNullOrWhiteSpace(StatusMessage))
+{
+    <MudText class="mb-4" Typo="Typo.h6" Color="Color.Warning">@StatusMessage</MudText>
+}
 
 @code {
     private List<KeyType> KeywordList = new List<KeyType>();
@@ -80,155 +91,137 @@
 
     private async Task CreateKeywordAsync()
     {
-        Console.WriteLine($"CreateKeywordAsync fired. Keyword name: '{NewKeyword.KeyTypeName}'");
-
-
-        StatusMessage = null;
-
-        var name = NewKeyword.KeyTypeName?.Trim();
-
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            ShowError("Enter a keyword name.");
-            return;
-        }
-
-        if (NewKeyword.KeyTypeLen <= 0)
-        {
-            ShowError("Length must be greater than zero.");
-            return;
-        }
-
-        var normalizedName = name.ToLower();
-
-        var duplicateExists = await Db.KeyTypes
-            .AsNoTracking()
-            .AnyAsync(keyword =>
-                keyword.KeyTypeName.ToLower() == normalizedName);
-
-        if (duplicateExists)
-        {
-            ShowError($"A keyword type named “{name}” already exists.");
-            return;
-        }
-
-        IsBusy = true;
-
-        try
-        {
-            var keyword = new KeyType
-            {
-                KeyTypeName = name,
-                KeyTypeLen = NewKeyword.KeyTypeLen,
-                KeyTypeMask = NewKeyword.KeyTypeMask,
-                KeyTypeFlags = NewKeyword.KeyTypeFlags,
-                DataType = NewKeyword.DataType
-            };
-
-            Db.KeyTypes.Add(keyword);
-            await Db.SaveChangesAsync();
-
-            NewKeyword = new KeyType();
-
-            await LoadKeywordsAsync();
-        }
-        catch (Exception ex)
-        {
-            Db.ChangeTracker.Clear();
-            ShowError($"The keyword could not be saved: {ex.Message}");
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
-
-    private async Task DeleteKeywordAsync(KeyType keyword)
-    {
         StatusMessage = null;
 
         if (IsBusy)
         {
             return;
         }
-
-        var assignedGroups = await Db.KeywordSetKeyTypes
-        .AsNoTracking()
-        .Where(membership =>
-            membership.KeyTypeNum == keyword.KeyTypeNum &&
-            membership.KeywordSet.IsKeyTypeGroup == 1)
-        .Select(membership =>
-            membership.KeywordSet.KeySetName)
-        .Distinct()
-        .OrderBy(groupName => groupName)
-        .ToListAsync();
-
-        if (assignedGroups.Count > 0)
-        {
-            var groupNames = string.Join(", ", assignedGroups);
-
-            ShowError(
-                $"Keyword Type “{keyword.KeyTypeName}” cannot be deleted " +
-                $"because it is assigned to the following Keyword Type " +
-                $"Group(s): {groupNames}. Remove it from those groups first.");
-
-            return;
-        }
-
-        var confirmed = await JS.InvokeAsync<bool>(
-            "confirm",
-            $"Delete Keyword Type “{keyword.KeyTypeName}”?");
-
-        if (!confirmed)
-        {
-            return;
-        }
-
         IsBusy = true;
 
         try
         {
+            Console.WriteLine($"CreateKeywordAsync fired. Keyword name: '{NewKeyword.KeyTypeName}'");
+
+            var name = NewKeyword.KeyTypeName?.Trim();
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                throw new("Enter a keyword name.");
+            }
+
+            if (NewKeyword.KeyTypeLen <= 0)
+            {
+                throw new("Length must be greater than zero.");
+            }
+
+            var normalizedName = name.ToLower();
+
+            var duplicateExists = await Db.KeyTypes
+                .AsNoTracking()
+                .AnyAsync(keyword =>
+                    keyword.KeyTypeName.ToLower() == normalizedName);
+
+            if (duplicateExists)
+            {
+                throw new($"A keyword type named “{name}” already exists.");
+            }
+
+            var keyword = new KeyType
+            {
+                KeyTypeName = name,
+                KeyTypeLen = NewKeyword.KeyTypeLen,
+                DataType = NewKeyword.DataType
+            };
+
+            Db.KeyTypes.Add(keyword);
+            await Db.SaveChangesAsync();
+
+            NewKeyword = keyword;
+
+            Navigation.NavigateTo($"/admin/keyword-types/{NewKeyword.KeyTypeNum}/properties");
+        }
+        catch (Exception ex)
+        {
+            ShowError(
+                $"The Keyword Type Group could not be added: {ex.Message}");
+        }
+        finally
+        {
+            Db.ChangeTracker.Clear();
+
+            await LoadKeywordsAsync();
+
+            IsBusy = false;
+        }
+    }
+
+    private async Task DeleteKeywordAsync(KeyType keyword)
+    {
+        try
+        {
+            StatusMessage = null;
+
+            if (IsBusy)
+            {
+                return;
+            }
+            IsBusy = true;
+
+            var assignedGroups = await Db.KeywordSetKeyTypes
+            .AsNoTracking()
+            .Where(membership =>
+                membership.KeyTypeNum == keyword.KeyTypeNum &&
+                membership.KeywordSet.IsKeyTypeGroup == 1)
+            .Select(membership =>
+                membership.KeywordSet.KeySetName)
+            .Distinct()
+            .OrderBy(groupName => groupName)
+            .ToListAsync();
+
+            if (assignedGroups.Count > 0)
+            {
+                var groupNames = string.Join(", ", assignedGroups);
+
+                throw new(
+                    $"Keyword Type “{keyword.KeyTypeName}” cannot be deleted " +
+                    $"because it is assigned to the following Keyword Type " +
+                    $"Group(s): {groupNames}. Remove it from those groups first.");
+            }
+
+            var confirmed = await JS.InvokeAsync<bool>(
+                "confirm",
+                $"Delete Keyword Type “{keyword.KeyTypeName}”?");
+
+            if (!confirmed)
+            {
+                return;
+            }
+
             var existingKeyword = await Db.KeyTypes
                 .SingleOrDefaultAsync(item =>
                     item.KeyTypeNum == keyword.KeyTypeNum);
 
             if (existingKeyword is null)
             {
-                ShowError("The Keyword Type no longer exists.");
-
-                await LoadKeywordsAsync();
-                return;
+                throw new("The Keyword Type no longer exists.");
             }
 
             Db.KeyTypes.Remove(existingKeyword);
 
             await Db.SaveChangesAsync();
-
-            Db.ChangeTracker.Clear();
-
-            await LoadKeywordsAsync();
-        }
-        catch (DbUpdateException)
-        {
-            // Fallback protection in case the keyword is assigned
-            // after the initial membership check.
-            Db.ChangeTracker.Clear();
-
-            ShowError(
-                $"Keyword Type “{keyword.KeyTypeName}” cannot be deleted " +
-                "because it is currently in use.");
-
-            await LoadKeywordsAsync();
         }
         catch (Exception ex)
         {
-            Db.ChangeTracker.Clear();
-
             ShowError(
-                $"The Keyword Type could not be deleted: {ex.Message}");
+                $"The Keyword Type Group could not be added: {ex.Message}");
         }
         finally
         {
+            Db.ChangeTracker.Clear();
+
+            await LoadKeywordsAsync();
+
             IsBusy = false;
         }
     }
@@ -236,13 +229,5 @@
     private void ShowError(string message)
     {
         StatusMessage = message;
-    }
-
-    private int TestClicks;
-
-    private void TestBlazor()
-    {
-        TestClicks++;
-        Console.WriteLine($"Test Blazor clicked: {TestClicks}");
     }
 }

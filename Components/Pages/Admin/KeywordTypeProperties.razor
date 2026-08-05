@@ -1,0 +1,264 @@
+﻿@page "/admin/keyword-types/{KeyTypeNum:long}/properties"
+
+@inherits LayoutComponentBase
+@using MudBlazor
+
+@using Archivyn.Data
+@using Archivyn.Models
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.JSInterop
+
+@inject ArchivynDbContext Db
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
+
+<MudText Typo="Typo.h2" class="mb-4">Keyword Properties</MudText>
+
+<MudText class="mb-4" Typo="Typo.h4">@CurrentKeyType.KeyTypeName #@CurrentKeyType.KeyTypeNum</MudText>
+
+<MudText Typo="Typo.h5">Keyword Name</MudText>
+<MudTextField class="mb-4" @bind-Value="UpdatedKeyType.KeyTypeName" Label="" Variant="Variant.Outlined"></MudTextField>
+
+<MudText Typo="Typo.h5">Length</MudText>
+<MudTextField class="mb-4" type="number" @bind-Value="UpdatedKeyType.KeyTypeLen" Label="" Variant="Variant.Outlined"></MudTextField>
+
+<MudButton class="mx-2"
+    Variant="Variant.Filled"
+    Color="Color.Primary"
+    disabled="@IsBusy"
+    @onclick="()=>SaveKeywordAsync()">
+    @(IsBusy ? "Saving..." : "Save Keyword")
+</MudButton>
+<MudButton Class="mx-2" Variant="Variant.Filled"
+           Color="Color.Secondary"
+           disabled="@IsBusy"
+           @onclick="() => DeleteKeywordAsync(CurrentKeyType)">
+    @(IsBusy ? "Deleting..." : "Delete")
+</MudButton>
+
+@if (!string.IsNullOrWhiteSpace(StatusMessage))
+{
+    <MudText class="mb-4" Typo="Typo.h6" Color="Color.Warning">@StatusMessage</MudText>
+}
+
+@code {
+    [Parameter]
+    public long KeyTypeNum { get; set; }
+
+    private KeyType CurrentKeyType = new KeyType();
+    private KeyType UpdatedKeyType = new KeyType();
+
+    private bool IsBusy;
+    private string? StatusMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadPageAsync();
+    }
+
+    private async Task LoadPageAsync()
+    {
+        try
+        {
+            var keyType = await Db.KeyTypes
+                .AsNoTracking()
+                .SingleOrDefaultAsync(keyType =>
+                    keyType.KeyTypeNum == KeyTypeNum);
+
+            if (keyType is null)
+            {
+                throw new ("The Keyword Type does not exist.");
+            }
+
+            CurrentKeyType = keyType;
+            UpdatedKeyType = new KeyType
+            {
+                KeyTypeNum = CurrentKeyType.KeyTypeNum,
+                KeyTypeName = CurrentKeyType.KeyTypeName,
+                DataType = CurrentKeyType.DataType,
+                KeyTypeLen = CurrentKeyType.KeyTypeLen
+            };
+        }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+            ShowError($"The keyword could not be saved: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task SaveKeywordAsync()
+    {
+        try
+        {
+            if (IsBusy)
+                return;
+            IsBusy = true;
+
+            StatusMessage = null;
+
+            var name = UpdatedKeyType.KeyTypeName?.Trim();
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                throw new("Enter a keyword name.");
+            }
+
+            // Use < instead of <= so saving the same length is allowed.
+            if (UpdatedKeyType.KeyTypeLen < CurrentKeyType.KeyTypeLen)
+            {
+                throw new("Length cannot be shrunk.");
+            }
+
+            var normalizedName = name.ToLower();
+
+            var duplicateExists = await Db.KeyTypes
+                .AsNoTracking()
+                .AnyAsync(keyword =>
+                    keyword.KeyTypeName.ToLower() == normalizedName &&
+                    keyword.KeyTypeNum != CurrentKeyType.KeyTypeNum);
+
+            if (duplicateExists)
+            {
+                throw new($"A keyword type named “{name}” already exists.");
+            }
+
+            // FindAsync returns the existing tracked instance when one exists.
+            var keyword = await Db.KeyTypes.FindAsync(
+                CurrentKeyType.KeyTypeNum);
+
+            if (keyword is null)
+            {
+                throw new("The keyword type no longer exists.");
+            }
+
+            keyword.KeyTypeName = name;
+            keyword.KeyTypeLen = UpdatedKeyType.KeyTypeLen;
+            keyword.DataType = UpdatedKeyType.DataType;
+
+            await Db.SaveChangesAsync();
+
+            CurrentKeyType = CopyKeyType(keyword);
+            UpdatedKeyType = CopyKeyType(keyword);
+
+            StatusMessage = "Keyword type saved.";
+
+            IsBusy = false;
+
+            Navigation.NavigateTo($"/admin/keyword-types/");
+        }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+            ShowError($"The keyword could not be saved: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task DeleteKeywordAsync(KeyType keyword)
+    {
+        try
+        {
+            StatusMessage = null;
+
+            if (IsBusy)
+            {
+                return;
+            }
+            IsBusy = true;
+
+            var assignedGroups = await Db.KeywordSetKeyTypes
+            .AsNoTracking()
+            .Where(membership =>
+                membership.KeyTypeNum == keyword.KeyTypeNum &&
+                membership.KeywordSet.IsKeyTypeGroup == 1)
+            .Select(membership =>
+                membership.KeywordSet.KeySetName)
+            .Distinct()
+            .OrderBy(groupName => groupName)
+            .ToListAsync();
+
+            if (assignedGroups.Count > 0)
+            {
+                var groupNames = string.Join(", ", assignedGroups);
+
+                throw new (
+                    $"Keyword Type “{keyword.KeyTypeName}” cannot be deleted " +
+                    $"because it is assigned to the following Keyword Type " +
+                    $"Group(s): {groupNames}. Remove it from those groups first.");
+            }
+
+            var confirmed = await JS.InvokeAsync<bool>(
+                "confirm",
+                $"Delete Keyword Type “{keyword.KeyTypeName}”?");
+
+            if (!confirmed)
+            {
+                return;
+            }
+
+            var existingKeyword = await Db.KeyTypes
+                .SingleOrDefaultAsync(item =>
+                    item.KeyTypeNum == keyword.KeyTypeNum);
+
+            if (existingKeyword is null)
+            {
+                throw new ("The Keyword Type no longer exists.");
+            }
+
+            Db.KeyTypes.Remove(existingKeyword);
+
+            await Db.SaveChangesAsync();
+
+            Db.ChangeTracker.Clear();
+
+            IsBusy = false;
+
+            Navigation.NavigateTo($"/admin/keyword-types/");
+        }
+        catch (DbUpdateException)
+        {
+            // Fallback protection in case the keyword is assigned
+            // after the initial membership check.
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                $"Keyword Type “{keyword.KeyTypeName}” cannot be deleted " +
+                "because it is currently in use.");
+        }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+
+            ShowError(
+                $"The Keyword Type could not be deleted: {ex.Message}");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private static KeyType CopyKeyType(KeyType source)
+    {
+        return new KeyType
+        {
+            KeyTypeNum = source.KeyTypeNum,
+            KeyTypeName = source.KeyTypeName,
+            DataType = source.DataType,
+            KeyTypeLen = source.KeyTypeLen
+        };
+    }
+
+    private void ShowError(string message)
+    {
+        StatusMessage = message;
+    }
+}

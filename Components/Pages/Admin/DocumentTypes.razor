@@ -11,7 +11,7 @@
 @inject ArchivynDbContext Db
 @inject IJSRuntime JS
 
-<PageTitle>Document Types</PageTitle>
+<MudText Typo="Typo.h2" class="mb-4">Document Types</MudText>
 
 @if (GroupList.Count == 0)
 {
@@ -19,31 +19,7 @@
 }
 else
 {
-    <MudText Typo="Typo.h5">Document Type Name</MudText>
-    <MudTextField class="mb-4" @bind-Value="NewDocumentTypeName" Label="" Variant="Variant.Outlined"></MudTextField>
-
-    <MudText Typo="Typo.h5">Document Type Group</MudText>
-    <MudSelect class="mb-4" @bind-Value="SelectedGroupNum" Variant="Variant.Outlined" Label="">
-        @foreach (var group in GroupList)
-        {
-            <MudSelectItem Value="@group.ItemTypeGroupNum">@group.ItemTypeGroupName</MudSelectItem>
-        }
-    </MudSelect>
-
-    <MudButton class="mb-4"
-               Variant="Variant.Filled"
-               Color="Color.Primary"
-               disabled="@IsBusy"
-               @onclick="CreateDocumentTypeAsync">
-        @(IsBusy ? "Creating..." : "Create Document Type")
-    </MudButton>
-
-    @if (!string.IsNullOrWhiteSpace(StatusMessage))
-    {
-        <MudText class="mb-4" Typo="Typo.h6" Color="Color.Secondary">@StatusMessage</MudText>
-    }
-
-    <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge">
+    <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraExtraLarge">
         <MudPaper Height="400px" Width="100%">
             <MudTable Items="DocumentTypeList" Height="350px" Virtualize="true" FixedHeader="true">
                 <HeaderContent>
@@ -74,6 +50,30 @@ else
             </MudTable>
         </MudPaper>
     </MudContainer>
+
+    <MudText Typo="Typo.h5">Document Type Name</MudText>
+    <MudTextField class="mb-4" @bind-Value="NewDocumentTypeName" Label="" Variant="Variant.Outlined"></MudTextField>
+
+    <MudText Typo="Typo.h5">Document Type Group</MudText>
+    <MudSelect class="mb-4" @bind-Value="SelectedGroupNum" Variant="Variant.Outlined" Label="">
+        @foreach (var group in GroupList)
+        {
+            <MudSelectItem Value="@group.ItemTypeGroupNum">@group.ItemTypeGroupName</MudSelectItem>
+        }
+    </MudSelect>
+
+    <MudButton Class="mx-2"
+               Variant="Variant.Filled"
+               Color="Color.Primary"
+               disabled="@IsBusy"
+               @onclick="CreateDocumentTypeAsync">
+        @(IsBusy ? "Creating..." : "Create Document Type")
+    </MudButton>
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <MudText class="mb-4" Typo="Typo.h6" Color="Color.Warning">@StatusMessage</MudText>
+    }
 }
 
 @code {
@@ -116,75 +116,64 @@ else
 
     private async Task CreateDocumentTypeAsync()
     {
-        StatusMessage = null;
-
-        if (IsBusy)
-        {
-            return;
-        }
-
-        var name = NewDocumentTypeName.Trim();
-
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            ShowError(
-                "Enter a Document Type name.");
-
-            return;
-        }
-
-        if (name.Length > 66)
-        {
-            ShowError(
-                "The Document Type name cannot exceed 66 characters.");
-
-            return;
-        }
-
-        if (SelectedGroupNum <= 0)
-        {
-            ShowError(
-                "Select a Document Type Group.");
-
-            return;
-        }
-
-        var groupExists =
-            await Db.ItemTypeGroups
-                .AsNoTracking()
-                .AnyAsync(group =>
-                    group.ItemTypeGroupNum
-                        == SelectedGroupNum);
-
-        if (!groupExists)
-        {
-            ShowError(
-                "The selected Document Type Group no longer exists.");
-
-            return;
-        }
-
-        var normalizedName = name.ToLower();
-
-        var duplicateExists =
-            await Db.DocumentTypes
-                .AsNoTracking()
-                .AnyAsync(documentType =>
-                    documentType.ItemTypeName.ToLower()
-                        == normalizedName);
-
-        if (duplicateExists)
-        {
-            ShowError(
-                $"A Document Type named “{name}” already exists.");
-
-            return;
-        }
-
-        IsBusy = true;
-
         try
         {
+            StatusMessage = null;
+
+            if (IsBusy)
+            {
+                return;
+            }
+            IsBusy = true;
+
+            var name = NewDocumentTypeName.Trim();
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                throw new(
+                    "Enter a Document Type name.");
+            }
+
+            if (name.Length > 66)
+            {
+                throw new(
+                    "The Document Type name cannot exceed 66 characters.");
+            }
+
+            if (SelectedGroupNum <= 0)
+            {
+                throw new(
+                    "Select a Document Type Group.");
+            }
+
+            var groupExists =
+                await Db.ItemTypeGroups
+                    .AsNoTracking()
+                    .AnyAsync(group =>
+                        group.ItemTypeGroupNum
+                            == SelectedGroupNum);
+
+            if (!groupExists)
+            {
+                throw new(
+                    "The selected Document Type Group no longer exists.");
+            }
+
+            var normalizedName = name.ToLower();
+
+            var duplicateExists =
+                await Db.DocumentTypes
+                    .AsNoTracking()
+                    .AnyAsync(documentType =>
+                        documentType.ItemTypeName.ToLower()
+                            == normalizedName);
+
+            if (duplicateExists)
+            {
+                throw new(
+                    $"A Document Type named “{name}” already exists.");
+            }
+        
             var documentType = new DocumentType
             {
                 ItemTypeName = name,
@@ -198,27 +187,18 @@ else
 
             NewDocumentTypeName = string.Empty;
             SelectedGroupNum = 0;
-
-            Db.ChangeTracker.Clear();
-
-            await LoadPageAsync();
-        }
-        catch (DbUpdateException)
-        {
-            Db.ChangeTracker.Clear();
-
-            ShowError(
-                $"A Document Type named “{name}” already exists.");
         }
         catch (Exception ex)
         {
-            Db.ChangeTracker.Clear();
-
             ShowError(
-                $"The Document Type could not be created: {ex.Message}");
+                $"The Keyword Type Group could not be added: {ex.Message}");
         }
         finally
         {
+            Db.ChangeTracker.Clear();
+
+            await LoadPageAsync();
+
             IsBusy = false;
         }
     }
@@ -226,72 +206,66 @@ else
     private async Task DeleteDocumentTypeAsync(
         long itemTypeNum)
     {
-        StatusMessage = null;
-
-        if (IsBusy)
-        {
-            return;
-        }
-
-        var documentType =
-            await Db.DocumentTypes
-                .AsNoTracking()
-                .SingleOrDefaultAsync(item =>
-                    item.ItemTypeNum
-                        == itemTypeNum);
-
-        if (documentType is null)
-        {
-            ShowError(
-                "The Document Type no longer exists.");
-
-            await LoadPageAsync();
-            return;
-        }
-
-        var confirmed = await JS.InvokeAsync<bool>(
-            "confirm",
-            $"Delete Document Type “{documentType.ItemTypeName}”?");
-
-        if (!confirmed)
-        {
-            return;
-        }
-
-        IsBusy = true;
-
         try
         {
+            StatusMessage = null;
+
+            if (IsBusy)
+            {
+                return;
+            }
+            IsBusy = true;
+
+            var documentType =
+                await Db.DocumentTypes
+                    .AsNoTracking()
+                    .SingleOrDefaultAsync(item =>
+                        item.ItemTypeNum
+                            == itemTypeNum);
+
+            if (documentType is null)
+            {
+                await LoadPageAsync();
+
+                throw new(
+                    "The Document Type no longer exists.");
+            }
+
+            var confirmed = await JS.InvokeAsync<bool>(
+                "confirm",
+                $"Delete Document Type “{documentType.ItemTypeName}”?");
+
+            if (!confirmed)
+            {
+                return;
+            }
+        
             var trackedDocumentType =
                 await Db.DocumentTypes.FindAsync(
                     itemTypeNum);
 
             if (trackedDocumentType is null)
             {
-                ShowError(
+                throw new(
                     "The Document Type no longer exists.");
-
-                return;
             }
 
             Db.DocumentTypes.Remove(
                 trackedDocumentType);
 
             await Db.SaveChangesAsync();
-
-            Db.ChangeTracker.Clear();
-
-            await LoadPageAsync();
         }
         catch (Exception ex)
         {
-            Db.ChangeTracker.Clear();
-
             ShowError(
-                $"The Document Type could not be deleted: {ex.Message}");
+                $"The Keyword Type Group could not be added: {ex.Message}");
         }
         finally
         {
+            Db.ChangeTracker.Clear();
+
+            await LoadPageAsync();
+
             IsBusy = false;
         }
     }

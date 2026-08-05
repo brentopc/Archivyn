@@ -1,7 +1,9 @@
 ﻿namespace Archivyn.Models;
 
-public sealed class KeywordSet
+public sealed class KeywordSet : ISystemManagedEntity
 {
+    public bool IsSystem { get; private set; }
+    
     public long KeySetTableNum { get; set; }
 
     public string KeySetName { get; set; } = string.Empty;

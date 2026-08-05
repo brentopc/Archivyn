@@ -9,12 +9,37 @@
 
 @inject ArchivynDbContext Db
 
-<PageTitle>Keyword Type Groups</PageTitle>
+<MudText Typo="Typo.h2" class="mb-4">Keyword Type Groups</MudText>
+
+<MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraExtraLarge">
+    <MudPaper Height="400px" Width="100%">
+        <MudTable Items="GroupList" Height="350px" Virtualize="true" FixedHeader="true">
+            <HeaderContent>
+                <MudTh>ID</MudTh>
+                <MudTh>Name</MudTh>
+                <MudTh>Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="ID">@context.KeySetTableNum</MudTd>
+                <MudTd DataLabel="Name">@context.KeySetName</MudTd>
+                <MudTd DataLabel="Actions">
+                    <MudButton Class="mx-2" Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               disabled="@(
+                               IsBusy ||
+                               @context.IsSystem)"
+                               href="@($"/admin/keyword-type-groups/{context.KeySetTableNum}/keywords")">
+                        Edit Keywords
+                    </MudButton>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
+</MudContainer>
 
 <MudText Typo="Typo.h5">Keyword Group Name</MudText>
-<MudTextField class="mb-4" @bind-Value="NewGroup.KeySetName" Label="" Variant="Variant.Outlined"></MudTextField>
-            
-<MudButton class="mb-4"
+<MudTextField class="mb-4" @bind-Value="NewGroup.KeySetName" Label="" Variant="Variant.Outlined"></MudTextField>            
+<MudButton Class="mx-2"
             Variant="Variant.Filled"
             Color="Color.Primary"
             disabled="@IsBusy"
@@ -24,32 +49,8 @@
 
 @if (!string.IsNullOrWhiteSpace(StatusMessage))
 {
-    <MudText class="mb-4" Typo="Typo.h6" Color="Color.Secondary">@StatusMessage</MudText>
+    <MudText class="mb-4" Typo="Typo.h6" Color="Color.Warning">@StatusMessage</MudText>
 }
-
-<MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge">
-    <MudPaper Height="400px" Width="100%">
-        <MudTable Items="GroupList" Height="350px" Virtualize="true" FixedHeader="true">
-            <HeaderContent>
-                <MudTh>ID</MudTh>
-                <MudTh>Name</MudTh>
-                <MudTh>Actions</MudTh>
-            </HeaderContent>
-            <RowTemplate>                
-                <MudTd DataLabel="ID">@context.KeySetTableNum</MudTd>
-                <MudTd DataLabel="Name">@context.KeySetName</MudTd>
-                <MudTd DataLabel="Actions">
-                    <MudButton Class="mx-2" Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               disabled="@IsBusy"
-                               href="@($"/admin/keyword-type-groups/{context.KeySetTableNum}/keywords")">
-                        Edit Keywords
-                    </MudButton>
-                </MudTd>
-            </RowTemplate>
-        </MudTable>
-    </MudPaper>
-</MudContainer>
 
 @code {
     private List<KeywordSet> GroupList = [];
@@ -80,53 +81,46 @@
 
     private async Task CreateGroupAsync()
     {
-        Console.WriteLine($"CreateGroupAsync fired. Group name: '{NewGroup.KeySetName}'");
-
-        StatusMessage = null;
-
-        if (IsBusy)
-        {
-            return;
-        }
-
-        var name = NewGroup.KeySetName.Trim();
-
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            ShowError(
-                "Enter a Keyword Type Group name.");
-
-            return;
-        }
-
-        if (name.Length > 80)
-        {
-            ShowError(
-                "The group name cannot exceed 80 characters.");
-
-            return;
-        }
-
-        var normalizedName = name.ToLower();
-
-        var duplicateExists = await Db.KeywordSets
-            .AsNoTracking()
-            .AnyAsync(group =>
-                group.IsKeyTypeGroup == 1 &&
-                group.KeySetName.ToLower() == normalizedName);
-
-        if (duplicateExists)
-        {
-            ShowError(
-                $"A Keyword Type Group named “{name}” already exists.");
-
-            return;
-        }
-
-        IsBusy = true;
-
         try
         {
+            Console.WriteLine($"CreateGroupAsync fired. Group name: '{NewGroup.KeySetName}'");
+
+            StatusMessage = null;
+
+            if (IsBusy)
+            {
+                return;
+            }
+            IsBusy = true;
+
+            var name = NewGroup.KeySetName.Trim();
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                throw new(
+                    "Enter a Keyword Type Group name.");
+            }
+
+            if (name.Length > 80)
+            {
+                throw new(
+                    "The group name cannot exceed 80 characters.");
+            }
+
+            var normalizedName = name.ToLower();
+
+            var duplicateExists = await Db.KeywordSets
+                .AsNoTracking()
+                .AnyAsync(group =>
+                    group.IsKeyTypeGroup == 1 &&
+                    group.KeySetName.ToLower() == normalizedName);
+
+            if (duplicateExists)
+            {
+                throw new(
+                    $"A Keyword Type Group named “{name}” already exists.");
+            }
+
             var group = new KeywordSet
             {
                 KeySetName = name,
@@ -145,27 +139,18 @@
                 group.KeySetTableNum;
 
             NewGroup = new KeywordSet();
-
-            Db.ChangeTracker.Clear();
-
-            await LoadGroupsAsync();
-        }
-        catch (DbUpdateException)
-        {
-            Db.ChangeTracker.Clear();
-
-            ShowError(
-                $"A Keyword Type Group named “{name}” already exists.");
         }
         catch (Exception ex)
         {
-            Db.ChangeTracker.Clear();
-
             ShowError(
-                $"The Keyword Type Group could not be created: {ex.Message}");
+                $"The Keyword Type Group could not be added: {ex.Message}");
         }
         finally
         {
+            Db.ChangeTracker.Clear();
+
+            await LoadGroupsAsync();
+
             IsBusy = false;
         }
     }

@@ -3,21 +3,37 @@
 
 <MudThemeProvider Theme="_currentTheme" IsDarkMode="true" />
 <MudPopoverProvider />
-<MudDialogProvider />
+<MudDialogProvider FullWidth="true"
+                   MaxWidth="MaxWidth.ExtraSmall"
+                   CloseButton="true"
+                   BackdropClick="false"
+                   NoHeader="true"
+                   Position="DialogPosition.Center"
+                   CloseOnEscapeKey="true"
+                   BackgroundClass="my-custom-class"
+                   ReverseMessageBoxButtonOrder="true" />
 <MudSnackbarProvider />
 
+
+
+
 <MudLayout Class="archivyn-layout">
-    <MudDrawer Open="true"
-               Fixed="true"
-               Anchor="Anchor.Start"
-               Elevation="1"
-               Variant="DrawerVariant.Responsive"
-               Color="Color.Primary"
-               Width="260px">
-        <MudDrawerHeader>
-            <MudText Typo="Typo.h6">Archivyn</MudText>
-        </MudDrawerHeader>
-        <MudNavMenu Color="Color.Secondary">
+    <MudAppBar Color="Color.Primary" Fixed="true" Elevation="1" >
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
+        <MudSpacer />
+        <MudText Typo="Typo.h3">Archivyn</MudText>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="@_open"
+                Fixed="true" Elevation="1"
+                Variant="@DrawerVariant.Temporary"
+                ClipMode="@DrawerClipMode.Never"
+                OpenMiniOnHover="false"
+                Breakpoint="Breakpoint.None"
+                Anchor="Anchor.Left"
+                Color="Color.Secondary"
+                Width="260px">
+        <MudNavMenu Color="Color.Primary">
             <MudNavLink Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard" IconColor="Color.Inherit" Href="/">Dashboard</MudNavLink>
             <MudNavGroup Title="Admin" Expanded="false" Icon="@Icons.Material.Filled.AdminPanelSettings" IconColor="Color.Inherit">
                 <MudNavGroup Title="Keywords" Expanded="false" Icon="@Icons.Material.Filled.Key" IconColor="Color.Inherit">
@@ -55,4 +71,11 @@
             TextSecondary = "#EFF5D2"
         }
     };
+
+    private bool _open = false;
+
+    private void ToggleDrawer()
+    {
+        _open = !_open;
+    }
 }

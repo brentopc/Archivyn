@@ -2,8 +2,10 @@
 
 namespace Archivyn.Models;
 
-public sealed class ItemTypeGroup
+public sealed class ItemTypeGroup : ISystemManagedEntity
 {
+    public bool IsSystem { get; private set; }
+    
     public long ItemTypeGroupNum { get; set; }
 
     public string ItemTypeGroupName { get; set; } = string.Empty;

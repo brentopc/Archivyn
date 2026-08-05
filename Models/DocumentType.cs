@@ -1,7 +1,9 @@
 ﻿namespace Archivyn.Models;
 
-public sealed class DocumentType
+public sealed class DocumentType : ISystemManagedEntity
 {
+    public bool IsSystem { get; private set; }
+
     public long ItemTypeNum { get; set; }
 
     public string ItemTypeName { get; set; } = string.Empty;

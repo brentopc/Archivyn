@@ -9,15 +9,15 @@
 
 @inject ArchivynDbContext Db
 
-<PageTitle>Keyword Type Group Keywords</PageTitle>
+<MudText Typo="Typo.h2" class="mb-4">Keyword Type Group Keywords</MudText>
 
-<MudText class="mb-4" Typo="Typo.h5">@SelectedGroup.KeySetName #@SelectedGroup.KeySetTableNum</MudText>
+<MudText class="mb-4" Typo="Typo.h4">@CurrentKeywordGroup.KeySetName #@CurrentKeywordGroup.KeySetTableNum</MudText>
 
 <MudGrid>
     <MudItem xs="6">
-        <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge">
+        <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraExtraLarge">
             <MudPaper Height="400px" Width="100%">
-                <MudTable Items="AvailableKeywords" Height="350px" Virtualize="true" FixedHeader="true">
+                <MudTable T="Archivyn.Models.KeyType" Items="AvailableKeywords" Height="350px" Virtualize="true" FixedHeader="true">
                     <HeaderContent>
                         <MudTh>ID</MudTh>
                         <MudTh>Name</MudTh>
@@ -40,7 +40,7 @@
         </MudContainer>
     </MudItem>
     <MudItem xs="6">
-        <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraLarge">
+        <MudContainer class="mb-4" MaxWidth="MaxWidth.ExtraExtraLarge">
             <MudPaper Height="400px" Width="100%">
                 <MudTable Items="AssignedMemberships" Height="350px" Virtualize="true" FixedHeader="true">
                     <HeaderContent>
@@ -69,7 +69,7 @@
 @code {
     [Parameter]
     public long KeySetTableNum { get; set; }
-    private KeywordSet SelectedGroup = new KeywordSet();
+    private KeywordSet CurrentKeywordGroup = new KeywordSet();
 
     private List<KeyType> AvailableKeywords = [];
     private List<KeywordSetKeyType> AssignedMemberships = [];    
@@ -91,26 +91,45 @@
     {
         StatusMessage = null;
 
-        var keywordTypeGroup = await Db.KeywordSets
-            .AsNoTracking()
-            .SingleOrDefaultAsync(group =>
-                group.KeySetTableNum == groupNumber &&
-                group.IsKeyTypeGroup == 1);
-
-        if (keywordTypeGroup is null)
+        if (IsBusy)
         {
-            AvailableKeywords = [];
-            AssignedMemberships = [];
-
-            ShowError(
-                "The selected Keyword Type Group no longer exists.");
-
             return;
         }
+        IsBusy = true;
 
-        SelectedGroup = keywordTypeGroup;
+        try
+        {
+            var keywordTypeGroup = await Db.KeywordSets
+                .AsNoTracking()
+                .SingleOrDefaultAsync(group =>
+                    group.KeySetTableNum == groupNumber &&
+                    group.IsKeyTypeGroup == 1);
 
-        await LoadMembershipAsync();
+            if (keywordTypeGroup is null)
+            {
+                AvailableKeywords = [];
+                AssignedMemberships = [];
+
+                Db.ChangeTracker.Clear();
+                throw new(
+                    "The selected Keyword Type Group no longer exists.");
+            }
+
+            CurrentKeywordGroup = keywordTypeGroup;
+        }
+        catch (Exception ex)
+        {
+            ShowError(
+                $"The Keyword Type Group could not be added: {ex.Message}");
+        }
+        finally
+        {
+            Db.ChangeTracker.Clear();
+
+            await LoadMembershipAsync();
+
+            IsBusy = false;
+        }
     }
 
     private async Task LoadMembershipAsync()
@@ -151,9 +170,8 @@
         {
             return;
         }
-
         IsBusy = true;
-
+        
         try
         {
             var groupNumber = KeySetTableNum;
@@ -165,10 +183,8 @@
 
             if (keyword is null)
             {
-                ShowError(
+                throw new(
                     "The Keyword Type no longer exists.");
-
-                return;
             }
 
             var alreadyAssigned =
@@ -180,10 +196,8 @@
 
             if (alreadyAssigned)
             {
-                ShowError(
+                throw new(
                     $"“{keyword.KeyTypeName}” is already assigned to this group.");
-
-                return;
             }
 
             var highestDisplayOrder =
@@ -207,26 +221,19 @@
 
             await Db.SaveChangesAsync();
 
-            Db.ChangeTracker.Clear();
-
             await LoadMembershipAsync();
-        }
-        catch (DbUpdateException)
-        {
-            Db.ChangeTracker.Clear();
-
-            ShowError(
-                "That Keyword Type is already assigned to this group.");
         }
         catch (Exception ex)
         {
-            Db.ChangeTracker.Clear();
-
             ShowError(
-                $"The Keyword Type could not be added: {ex.Message}");
+                $"The Keyword Type Group could not be added: {ex.Message}");
         }
         finally
         {
+            Db.ChangeTracker.Clear();
+
+            await LoadMembershipAsync();
+
             IsBusy = false;
         }
     }
@@ -236,15 +243,14 @@
     {
         StatusMessage = null;
 
-        if (IsBusy)
-        {
-            return;
-        }
-
-        IsBusy = true;
-
         try
         {
+            if (IsBusy)
+            {
+                return;
+            }
+            IsBusy = true;
+        
             var groupNumber = KeySetTableNum;
 
             var membership =
@@ -255,7 +261,7 @@
 
             if (membership is null)
             {
-                ShowError(
+                throw new(
                     "That Keyword Type is not assigned to this group.");
 
                 return;
@@ -274,20 +280,18 @@
                 membership);
 
             await Db.SaveChangesAsync();
-
-            Db.ChangeTracker.Clear();
-
-            await LoadMembershipAsync();
         }
         catch (Exception ex)
         {
-            Db.ChangeTracker.Clear();
-
             ShowError(
-                $"The Keyword Type could not be removed: {ex.Message}");
+                $"The Keyword Type Group could not be added: {ex.Message}");
         }
         finally
         {
+            Db.ChangeTracker.Clear();
+
+            await LoadMembershipAsync();
+
             IsBusy = false;
         }
     }

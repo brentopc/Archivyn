@@ -5,7 +5,8 @@ namespace Archivyn.Data;
 
 public class ArchivynDbContext : DbContext
 {
-    public ArchivynDbContext(DbContextOptions<ArchivynDbContext> options)
+    public ArchivynDbContext(
+        DbContextOptions<ArchivynDbContext> options)
         : base(options)
     {
     }
@@ -38,18 +39,14 @@ public class ArchivynDbContext : DbContext
             entity.HasIndex(e => e.KeyTypeName)
                 .IsUnique();
 
-            entity.Property(e => e.KeyTypeMask)
-                .HasColumnName("keytypemask")
-                .HasMaxLength(51);
-
-            entity.Property(e => e.KeyTypeFlags)
-                .HasColumnName("keytypeflags");
-
             entity.Property(e => e.DataType)
                 .HasColumnName("datatype");
 
             entity.Property(e => e.KeyTypeLen)
                 .HasColumnName("keytypelen");
+
+            entity.Property(x => x.IsSystem)
+                .HasDefaultValue(false);
         });
 
         modelBuilder.Entity<KeywordSet>(entity =>
@@ -75,6 +72,9 @@ public class ArchivynDbContext : DbContext
 
             entity.HasIndex(e => e.KeySetName)
                 .IsUnique();
+
+            entity.Property(x => x.IsSystem)
+                .HasDefaultValue(false);
         });
 
         modelBuilder.Entity<KeywordSetKeyType>(entity =>
@@ -111,6 +111,9 @@ public class ArchivynDbContext : DbContext
                 e.KeySetTableNum,
                 e.DisplayOrder
             });
+
+            entity.Property(x => x.IsSystem)
+                .HasDefaultValue(false);
         });
 
         modelBuilder.Entity<ItemTypeGroup>(entity =>
@@ -139,6 +142,9 @@ public class ArchivynDbContext : DbContext
             entity.HasIndex(group =>
                     group.ItemTypeGroupName)
                 .IsUnique();
+
+            entity.Property(x => x.IsSystem)
+                .HasDefaultValue(false);
         });
 
         modelBuilder.Entity<DocumentType>(entity =>
@@ -179,6 +185,9 @@ public class ArchivynDbContext : DbContext
                 .HasForeignKey(documentType =>
                     documentType.ItemTypeGroupNum)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.Property(x => x.IsSystem)
+                .HasDefaultValue(false);
         });
 
         modelBuilder.Entity<DocumentTypeKeyType>(entity =>
@@ -216,6 +225,9 @@ public class ArchivynDbContext : DbContext
                 assignment.ItemTypeNum,
                 assignment.DisplayOrder
             });
+
+            entity.Property(x => x.IsSystem)
+                .HasDefaultValue(false);
         });
 
         modelBuilder.Entity<DocumentTypeKeywordTypeGroup>(entity =>
@@ -253,6 +265,347 @@ public class ArchivynDbContext : DbContext
                 assignment.ItemTypeNum,
                 assignment.DisplayOrder
             });
+
+            entity.Property(x => x.IsSystem)
+                .HasDefaultValue(false);
         });
+
+        ConfigureSystemManagedEntities(modelBuilder);
+        ConfigureSystemData(modelBuilder);
+    }
+
+    private static void ConfigureSystemManagedEntities(ModelBuilder modelBuilder)
+    {
+        var systemManagedEntityTypes = modelBuilder.Model
+            .GetEntityTypes()
+            .Where(entityType =>
+                typeof(ISystemManagedEntity)
+                    .IsAssignableFrom(entityType.ClrType));
+
+        foreach (var entityType in systemManagedEntityTypes)
+        {
+            modelBuilder.Entity(entityType.ClrType)
+                .Property(nameof(ISystemManagedEntity.IsSystem))
+                .HasDefaultValue(false);
+        }
+    }
+    private static void ConfigureSystemData(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<ItemTypeGroup>().HasData(
+            new
+            {
+                ItemTypeGroupNum = 1L,
+                ItemTypeGroupName = "System Documents",
+                Flags = 0L,
+                IsSystem = true
+            });
+
+        modelBuilder.Entity<DocumentType>().HasData(
+            new
+            {
+                ItemTypeNum = 1L,
+                ItemTypeName = "Unindexed",
+                ItemTypeGroupNum = 1L,
+                Flags = 0L,
+                IsSystem = true
+            });
+
+        modelBuilder.Entity<KeyType>().HasData(
+            new
+            {
+                KeyTypeNum = 1L,
+                KeyTypeName = ">> Document Date",
+                DataType = KeyType.DataTypes.Date,
+                KeyTypeLen = 10L,
+                IsSystem = true,
+                AddToAllDocumentTypes = true,
+                IsRequiredOnAllDocumentTypes = true,
+                AllDocumentTypesDisplayOrder = 1
+            });
+        modelBuilder.Entity<KeyType>().HasData(
+            new
+            {
+                KeyTypeNum = 2L,
+                KeyTypeName = "Description",
+                DataType = KeyType.DataTypes.Text,
+                KeyTypeLen = 250L,
+                IsSystem = false,
+                AddToAllDocumentTypes = true,
+                IsRequiredOnAllDocumentTypes = false,
+                AllDocumentTypesDisplayOrder = 2
+            });
+
+        modelBuilder.Entity<DocumentTypeKeyType>().HasData(
+            new
+            {
+                ItemTypeNum = 1L,
+                KeyTypeNum = 2L,
+                DisplayOrder = 2,
+                IsRequired = true,
+                IsSystem = true
+            });
+    }
+
+    private void ProtectSystemConfiguration()
+    {
+        ChangeTracker.DetectChanges();
+
+        foreach (var entry in ChangeTracker.Entries())
+        {
+            if (entry.Entity is not ISystemManagedEntity)
+            {
+                continue;
+            }
+
+            if (entry.State is not EntityState.Modified
+                and not EntityState.Deleted)
+            {
+                continue;
+            }
+
+            var isSystemProperty = entry.Property(
+                nameof(ISystemManagedEntity.IsSystem));
+
+            var wasSystem =
+                isSystemProperty.OriginalValue is true;
+
+            var isSystemNow =
+                isSystemProperty.CurrentValue is true;
+
+            if (!wasSystem && !isSystemNow)
+            {
+                continue;
+            }
+
+            throw new InvalidOperationException(
+                $"{GetEntityDescription(entry)} is managed by " +
+                "Archivyn and cannot be modified or deleted.");
+        }
+    }
+    private static string GetEntityDescription(
+    Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry)
+    {
+        var entityName = entry.Metadata.ClrType.Name;
+        var primaryKey = entry.Metadata.FindPrimaryKey();
+
+        if (primaryKey is null)
+        {
+            return entityName;
+        }
+
+        var keyParts = primaryKey.Properties.Select(property =>
+        {
+            var value = entry.Property(property.Name).CurrentValue;
+
+            return $"{property.Name}={value}";
+        });
+
+        return $"{entityName} ({string.Join(", ", keyParts)})";
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        AddSystemKeywordsToNewDocumentTypes();
+        ProtectSystemConfiguration();
+
+        return base.SaveChanges(
+            acceptAllChangesOnSuccess);
+    }
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        await AddSystemKeywordsToNewDocumentTypesAsync(cancellationToken);
+
+        ProtectSystemConfiguration();
+
+        return await base.SaveChangesAsync(
+            acceptAllChangesOnSuccess,
+            cancellationToken);
+    }
+
+    private void AddSystemKeywordsToNewDocumentTypes()
+    {
+        ChangeTracker.DetectChanges();
+
+        List<DocumentType> newDocumentTypes = ChangeTracker
+            .Entries<DocumentType>()
+            .Where(entry => entry.State == EntityState.Added)
+            .Select(entry => entry.Entity)
+            .ToList();
+
+        if (newDocumentTypes.Count == 0)
+        {
+            return;
+        }
+
+        List<KeyType> systemKeywords = Set<KeyType>()
+            .AsNoTracking()
+            .Where(keyword =>
+                keyword.IsSystem &&
+                keyword.AddToAllDocumentTypes)
+            .OrderBy(keyword =>
+                keyword.AllDocumentTypesDisplayOrder)
+            .ToList();
+
+        if (systemKeywords.Count == 0)
+        {
+            return;
+        }
+
+        List<DocumentTypeKeyType> trackedAssignments =
+            ChangeTracker
+                .Entries<DocumentTypeKeyType>()
+                .Where(entry =>
+                    entry.State != EntityState.Deleted)
+                .Select(entry => entry.Entity)
+                .ToList();
+
+        foreach (DocumentType documentType in newDocumentTypes)
+        {
+            foreach (KeyType keywordType in systemKeywords)
+            {
+                bool alreadyAssigned = trackedAssignments.Any(
+                    assignment =>
+                        ReferenceEquals(
+                            assignment.DocumentType,
+                            documentType)
+                        &&
+                        assignment.KeyTypeNum ==
+                            keywordType.KeyTypeNum);
+
+                if (alreadyAssigned)
+                {
+                    continue;
+                }
+
+                var assignment = DocumentTypeKeyType.CreateSystemAssignment(documentType,keywordType);
+
+                Set<DocumentTypeKeyType>().Add(assignment);
+                trackedAssignments.Add(assignment);
+            }
+        }
+    }
+    private async Task AddSystemKeywordsToNewDocumentTypesAsync(CancellationToken cancellationToken)
+    {
+        ChangeTracker.DetectChanges();
+
+        List<DocumentType> newDocumentTypes = ChangeTracker
+            .Entries<DocumentType>()
+            .Where(entry => entry.State == EntityState.Added)
+            .Select(entry => entry.Entity)
+            .ToList();
+
+        if (newDocumentTypes.Count == 0)
+        {
+            return;
+        }
+
+        List<KeyType> systemKeywords =
+            await Set<KeyType>()
+                .AsNoTracking()
+                .Where(keyword =>
+                    keyword.IsSystem &&
+                    keyword.AddToAllDocumentTypes)
+                .OrderBy(keyword =>
+                    keyword.AllDocumentTypesDisplayOrder)
+                .ToListAsync(cancellationToken);
+
+        if (systemKeywords.Count == 0)
+        {
+            return;
+        }
+
+        List<DocumentTypeKeyType> trackedAssignments =
+            ChangeTracker
+                .Entries<DocumentTypeKeyType>()
+                .Where(entry =>
+                    entry.State != EntityState.Deleted)
+                .Select(entry => entry.Entity)
+                .ToList();
+
+        foreach (DocumentType documentType in newDocumentTypes)
+        {
+            foreach (KeyType keywordType in systemKeywords)
+            {
+                bool alreadyAssigned = trackedAssignments.Any(
+                    assignment =>
+                        ReferenceEquals(
+                            assignment.DocumentType,
+                            documentType)
+                        &&
+                        assignment.KeyTypeNum ==
+                            keywordType.KeyTypeNum);
+
+                if (alreadyAssigned)
+                {
+                    continue;
+                }
+
+                var assignment = DocumentTypeKeyType.CreateSystemAssignment(documentType, keywordType);
+
+                Set<DocumentTypeKeyType>().Add(assignment);
+                trackedAssignments.Add(assignment);
+            }
+        }
+    }
+    public async Task EnsureSystemKeywordsOnAllDocumentTypesAsync(CancellationToken cancellationToken = default)
+    {
+        var documentTypes = await Set<DocumentType>()
+            .ToListAsync(cancellationToken);
+
+        var systemKeywords = await Set<KeyType>()
+            .Where(keyType =>
+                keyType.IsSystem &&
+                keyType.AddToAllDocumentTypes)
+            .OrderBy(keyType =>
+                keyType.AllDocumentTypesDisplayOrder)
+            .ToListAsync(cancellationToken);
+
+        if (documentTypes.Count == 0 ||
+            systemKeywords.Count == 0)
+        {
+            return;
+        }
+
+        var existingAssignments =
+            await Set<DocumentTypeKeyType>()
+                .AsNoTracking()
+                .Select(assignment => new
+                {
+                    assignment.ItemTypeNum,
+                    assignment.KeyTypeNum
+                })
+                .ToListAsync(cancellationToken);
+
+        var existingPairs = existingAssignments
+            .Select(assignment => (
+                assignment.ItemTypeNum,
+                assignment.KeyTypeNum))
+            .ToHashSet();
+
+        foreach (var documentType in documentTypes)
+        {
+            foreach (var keyType in systemKeywords)
+            {
+                var pair = (
+                    documentType.ItemTypeNum,
+                    keyType.KeyTypeNum);
+
+                if (existingPairs.Contains(pair))
+                {
+                    continue;
+                }
+
+                var assignment =
+                    DocumentTypeKeyType.CreateSystemAssignment(
+                        documentType,
+                        keyType);
+
+                Set<DocumentTypeKeyType>().Add(assignment);
+
+                existingPairs.Add(pair);
+            }
+        }
+
+        await SaveChangesAsync(cancellationToken);
     }
 }
