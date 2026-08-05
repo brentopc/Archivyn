@@ -329,8 +329,8 @@ public class ArchivynDbContext : DbContext
                 KeyTypeName = "Description",
                 DataType = KeyType.DataTypes.Text,
                 KeyTypeLen = 250L,
-                IsSystem = true,
-                AddToAllDocumentTypes = false,
+                IsSystem = false,
+                AddToAllDocumentTypes = true,
                 IsRequiredOnAllDocumentTypes = false,
                 AllDocumentTypesDisplayOrder = 2
             });
@@ -440,7 +440,7 @@ public class ArchivynDbContext : DbContext
         List<KeyType> systemKeywords = Set<KeyType>()
             .AsNoTracking()
             .Where(keyword =>
-                keyword.IsSystem &&
+                keyword.IsSystem ||
                 keyword.AddToAllDocumentTypes)
             .OrderBy(keyword =>
                 keyword.AllDocumentTypesDisplayOrder)
@@ -503,7 +503,7 @@ public class ArchivynDbContext : DbContext
             await Set<KeyType>()
                 .AsNoTracking()
                 .Where(keyword =>
-                    keyword.IsSystem &&
+                    keyword.IsSystem ||
                     keyword.AddToAllDocumentTypes)
                 .OrderBy(keyword =>
                     keyword.AllDocumentTypesDisplayOrder)
@@ -554,7 +554,7 @@ public class ArchivynDbContext : DbContext
 
         var systemKeywords = await Set<KeyType>()
             .Where(keyType =>
-                keyType.IsSystem &&
+                keyType.IsSystem ||
                 keyType.AddToAllDocumentTypes)
             .OrderBy(keyType =>
                 keyType.AllDocumentTypesDisplayOrder)
