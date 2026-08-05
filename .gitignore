@@ -3,21 +3,37 @@
 *.user
 *.suo
 
-# Build output
-bin/
-obj/
-
-# Rider / VS Code
+# JetBrains Rider / VS Code
 .idea/
 .vscode/
 
-# Docker
-.env
+# .NET build output
+**/bin/
+**/obj/
 
-# OS
-Thumbs.db
-Desktop.ini
+# Local publish output
+publish/
+publish-test/
+
+# Local secrets and environment variables
+.env
+.env.*
+!.env.example
+
+# Local ASP.NET configuration
+appsettings.Local.json
+appsettings.*.Local.json
 
 # Logs
 *.log
-publish-test/
+logs/
+
+# Test results and coverage
+TestResults/
+coverage/
+coverage.*
+
+# Operating system files
+Thumbs.db
+Desktop.ini
+.DS_Store

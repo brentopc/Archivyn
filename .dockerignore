@@ -1,11 +1,37 @@
-**/bin
-**/obj
-**/.vs
-**/.vscode
-**/.idea
-.git
-.gitignore
-Dockerfile*
-docker-compose*
-README.md
+# Git
+.git/
+.github/
+
+# IDE files
+.vs/
+.idea/
+.vscode/
+
+# .NET output
+**/bin/
+**/obj/
+
+# Local publish output
+publish/
+publish-test/
+
+# Local secrets
 .env
+.env.*
+appsettings.Local.json
+appsettings.*.Local.json
+
+# Logs and test output
+*.log
+logs/
+TestResults/
+coverage/
+coverage.*
+
+# Operating system files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Documentation not required during build
+README.md
