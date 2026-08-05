@@ -1,0 +1,46 @@
+services:
+  archivyn:
+    image: ghcr.io/brentopc/archivyn:${ARCHIVYN_VERSION:-latest}
+    container_name: archivyn
+    restart: unless-stopped
+
+    ports:
+      - "${ARCHIVYN_PORT:-7421}:8080"
+
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Archivyn: >-
+        Host=postgres;
+        Port=5432;
+        Database=${POSTGRES_DB:-archivyn};
+        Username=${POSTGRES_USER:-archivyn};
+        Password=${POSTGRES_PASSWORD};
+
+    volumes:
+      - archivyn_documents:/data/documents
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17
+    container_name: archivyn-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-archivyn}"
+      POSTGRES_USER: "${POSTGRES_USER:-archivyn}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-archivyn} -d ${POSTGRES_DB:-archivyn}
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  archivyn_postgres_data:
+  archivyn_documents:

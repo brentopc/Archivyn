@@ -21,6 +21,10 @@ public class ArchivynDbContext : DbContext
     public DbSet<DocumentTypeKeyType> DocumentTypeKeyTypes => Set<DocumentTypeKeyType>();
     public DbSet<DocumentTypeKeywordTypeGroup> DocumentTypeKeywordTypeGroups => Set<DocumentTypeKeywordTypeGroup>();
 
+    public DbSet<ItemData> ItemData => Set<ItemData>();
+
+    public DbSet<KeyItem> KeyItems => Set<KeyItem>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<KeyType>(entity =>
@@ -268,6 +272,124 @@ public class ArchivynDbContext : DbContext
 
             entity.Property(x => x.IsSystem)
                 .HasDefaultValue(false);
+        });
+
+        modelBuilder.Entity<ItemData>(entity =>
+        {
+            entity.ToTable("itemdata");
+
+            entity.HasKey(x => x.ItemNum);
+
+            entity.Property(x => x.ItemNum)
+                .HasColumnName("itemnum")
+                .ValueGeneratedOnAdd();
+
+            entity.Property(x => x.ItemName)
+                .HasColumnName("itemname")
+                .HasMaxLength(255)
+                .IsRequired();
+
+            entity.Property(x => x.Status)
+                .HasColumnName("status");
+
+            entity.Property(x => x.ItemTypeGroupNum)
+                .HasColumnName("itemtypegroupnum");
+
+            entity.Property(x => x.ItemTypeNum)
+                .HasColumnName("itemtypenum");
+
+            entity.Property(x => x.ItemDate)
+                .HasColumnName("itemdate");
+
+            entity.Property(x => x.DateStored)
+                .HasColumnName("datestored");
+
+            entity.Property(x => x.UserNum)
+                .HasColumnName("usernum");
+
+            entity.Property(x => x.OriginalFileName)
+                .HasColumnName("originalfilename")
+                .HasMaxLength(255)
+                .IsRequired();
+
+            entity.Property(x => x.FileExtension)
+                .HasColumnName("fileextension")
+                .HasMaxLength(20)
+                .IsRequired();
+
+            entity.Property(x => x.FileSize)
+                .HasColumnName("filesize");
+
+            entity.HasOne(x => x.DocumentType)
+                .WithMany()
+                .HasForeignKey(x => x.ItemTypeNum)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(x => x.ItemTypeGroup)
+                .WithMany()
+                .HasForeignKey(x => x.ItemTypeGroupNum)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<KeyItem>(entity =>
+        {
+            entity.ToTable("keyitem");
+
+            entity.HasKey(x => x.KeyItemNum);
+
+            entity.Property(x => x.KeyItemNum)
+                .HasColumnName("keyitemnum")
+                .ValueGeneratedOnAdd();
+
+            entity.Property(x => x.ItemNum)
+                .HasColumnName("itemnum");
+
+            entity.Property(x => x.KeyTypeNum)
+                .HasColumnName("keytypenum");
+
+            entity.Property(x => x.KeyValueChar)
+                .HasColumnName("keyvaluechar")
+                .HasMaxLength(250);
+
+            entity.Property(x => x.KeyValueNum)
+                .HasColumnName("keyvaluenum");
+
+            entity.Property(x => x.KeyValueDate)
+                .HasColumnName("keyvaluedate");
+
+            entity.HasOne(x => x.ItemData)
+                .WithMany(x => x.KeywordValues)
+                .HasForeignKey(x => x.ItemNum)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.KeyType)
+                .WithMany()
+                .HasForeignKey(x => x.KeyTypeNum)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(x => new
+            {
+                x.ItemNum,
+                x.KeyTypeNum
+            });
+
+            entity.HasIndex(x => new
+            {
+                x.KeyTypeNum,
+                x.KeyValueChar
+            });
+
+            entity.HasIndex(x => new
+            {
+                x.KeyTypeNum,
+                x.KeyValueNum
+            });
+
+            entity.HasIndex(x => new
+            {
+                x.KeyTypeNum,
+                x.KeyValueDate
+            });
         });
 
         ConfigureSystemManagedEntities(modelBuilder);

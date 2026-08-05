@@ -29,8 +29,10 @@
                         <MudTd DataLabel="Actions">
                             <MudButton Class="mx-2" Variant="Variant.Filled"
                                         Color="Color.Primary"
-                                        disabled="@IsBusy"
-                                        @onclick="() => AddKeywordAsync(context.KeyTypeNum)">
+                                       disabled="@(
+                                       IsBusy ||
+                                       @context.IsSystem)"
+                                       @onclick="() => AddKeywordAsync(context.KeyTypeNum)">
                                 Add
                             </MudButton>
                         </MudTd>
